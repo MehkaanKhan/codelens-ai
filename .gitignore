@@ -3,3 +3,27 @@ dist
 node_modules
 .vscode-test/
 *.vsix
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+
+# Dataset files — large, regenerable
+finetune/data/raw/*.jsonl
+finetune/data/processed/*.jsonl
+finetune/data/raw/*.json
+finetune/data/processed/*.json
+
+# Model weights and exports
+finetune/models/
+*.gguf
+*.bin
+*.safetensors
+
+# Secrets
+.env
+*.pem
+token.json
+credentials.json
