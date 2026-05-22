@@ -1,14 +1,31 @@
-out
-dist
-node_modules
-.vscode-test/
-*.vsix
+# Environment & secrets
+.env
+credentials.json
+token.json
+*.pem
+
+# Temp / intermediate files
+.tmp/
 
 # Python
 __pycache__/
 *.py[cod]
-.venv/
 *.egg-info/
+.venv/
+venv/
+.Python
+dist/
+build/
+*.so
+
+# Node / Extension
+node_modules/
+out/
+*.vsix
+.vscode-test/
+
+# Jupyter
+.ipynb_checkpoints/
 
 # Dataset files — large, regenerable
 finetune/data/raw/*.jsonl
@@ -18,12 +35,18 @@ finetune/data/processed/*.json
 
 # Model weights and exports
 finetune/models/
+finetune/checkpoints/
+finetune/outputs/
 *.gguf
 *.bin
 *.safetensors
+*.pt
+*.pth
 
-# Secrets
-.env
-*.pem
-token.json
-credentials.json
+# ChromaDB
+chroma_db/
+*.chroma
+
+# OS
+.DS_Store
+Thumbs.db
