@@ -1,23 +1,54 @@
 {
   "name": "codelens-ai",
   "displayName": "CodeLens AI",
-  "description": "AI-powered codebase intelligence for VS Code",
+  "description": "AI-powered codebase intelligence for VS Code — offline, local LLM",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.120.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Programming Languages",
+    "Machine Learning"
   ],
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "codelens-ai.helloWorld",
-        "title": "Hello World"
+        "command": "codelens-ai.openChat",
+        "title": "CodeLens AI: Open Chat"
+      },
+      {
+        "command": "codelens-ai.openConverter",
+        "title": "CodeLens AI: Open Code Converter"
+      },
+      {
+        "command": "codelens-ai.openGraph",
+        "title": "CodeLens AI: Open Dependency Graph"
+      },
+      {
+        "command": "codelens-ai.indexRepo",
+        "title": "CodeLens AI: Index Current Workspace"
       }
-    ]
+    ],
+    "configuration": {
+      "title": "CodeLens AI",
+      "properties": {
+        "codelens-ai.pythonPath": {
+          "type": "string",
+          "default": "python",
+          "description": "Path to Python interpreter used to run the backend server."
+        },
+        "codelens-ai.backendPort": {
+          "type": "number",
+          "default": 8080,
+          "description": "Port the FastAPI backend listens on."
+        }
+      }
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

@@ -111,6 +111,14 @@ def index_repo(req: IndexRequest):
     if result.returncode != 0:
         raise HTTPException(status_code=500, detail=f"Store failed: {result.stderr}")
 
+    # Step 4: Dependency graph
+    result = subprocess.run(
+        [sys.executable, str(tools_dir / "build_graph.py"), "--repo-path", str(repo)],
+        capture_output=True, text=True
+    )
+    if result.returncode != 0:
+        raise HTTPException(status_code=500, detail=f"Graph build failed: {result.stderr}")
+
     return {"status": "indexed", "repo_path": str(repo)}
 
 
