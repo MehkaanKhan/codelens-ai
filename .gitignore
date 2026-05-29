@@ -37,11 +37,17 @@ finetune/data/processed/*.json
 finetune/models/
 finetune/checkpoints/
 finetune/outputs/
+finetune/output/
+finetune/llama.cpp/
 *.gguf
 *.bin
 *.safetensors
 *.pt
 *.pth
+
+# Build artifacts / test zips
+*.zip
+git
 
 # ChromaDB
 chroma_db/

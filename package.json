@@ -16,6 +16,15 @@
   ],
   "main": "./dist/extension.js",
   "contributes": {
+    "chatParticipants": [
+      {
+        "id": "codelens-ai",
+        "name": "codelens-ai",
+        "fullName": "CodeLens AI",
+        "description": "Ask anything about your indexed codebase — runs fully offline",
+        "isSticky": true
+      }
+    ],
     "commands": [
       {
         "command": "codelens-ai.openChat",

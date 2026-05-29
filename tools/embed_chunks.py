@@ -19,6 +19,11 @@ load_dotenv()
 OLLAMA_BASE_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
 EMBED_MODEL = os.getenv("EMBED_MODEL", "nomic-embed-text")
 
+# Always resolve .tmp relative to repo root regardless of CWD
+_REPO_ROOT    = Path(__file__).parent.parent.resolve()
+_DEFAULT_IN   = str(_REPO_ROOT / ".tmp" / "chunks.jsonl")
+_DEFAULT_OUT  = str(_REPO_ROOT / ".tmp" / "chunks_with_embeddings.jsonl")
+
 
 def embed_batch(texts: list[str]) -> list[list[float]]:
     """Send a batch of texts to Ollama's embed endpoint."""
@@ -30,8 +35,8 @@ def embed_batch(texts: list[str]) -> list[list[float]]:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--input", default=".tmp/chunks.jsonl")
-    parser.add_argument("--output", default=".tmp/chunks_with_embeddings.jsonl")
+    parser.add_argument("--input",  default=_DEFAULT_IN)
+    parser.add_argument("--output", default=_DEFAULT_OUT)
     parser.add_argument("--batch-size", type=int, default=50)
     args = parser.parse_args()
 

@@ -145,10 +145,13 @@ def parse_file(file_path: Path, language: str) -> list[dict]:
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--repo-path", required=True)
-    parser.add_argument("--output", default=".tmp/chunks.jsonl")
+    # Default output is always relative to the repo root (not CWD)
+    _repo_root = Path(__file__).parent.parent.resolve()
+    _default_out = str(_repo_root / ".tmp" / "chunks.jsonl")
+    parser.add_argument("--output", default=_default_out)
     args = parser.parse_args()
 
-    repo = Path(args.repo_path)
+    repo = Path(args.repo_path).resolve()
     output = Path(args.output)
     output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -165,6 +168,15 @@ def main():
             continue
 
         chunks = parse_file(file_path, language)
+
+        # Store paths RELATIVE to the repo root so source citations work correctly
+        # in the VS Code extension's file anchor links.
+        for chunk in chunks:
+            try:
+                chunk["file_path"] = file_path.relative_to(repo).as_posix()
+            except ValueError:
+                chunk["file_path"] = str(file_path)  # fallback to absolute if outside repo
+
         all_chunks.extend(chunks)
         file_count += 1
 

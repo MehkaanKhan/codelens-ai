@@ -1,0 +1,685 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<title>CodeLens AI — Database</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#000;
+  --bg2:#0a0a0a;
+  --bg3:#111;
+  --border:rgba(255,255,255,0.08);
+  --border-hi:rgba(255,255,255,0.18);
+  --text:#e2e2e2;
+  --muted:rgba(255,255,255,0.38);
+  --accent:#8b8fc8;
+  --accent2:#6a9fc4;
+  --accent-dim:rgba(139,143,200,0.12);
+  --green:#4caf72;
+  --grid:52px;
+}
+
+html,body{min-height:100%;background:var(--bg);color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6}
+
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(var(--border) 1px,transparent 1px),
+    linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:var(--grid) var(--grid)}
+
+.page{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px 80px}
+
+/* ── Nav ── */
+nav{display:flex;align-items:center;justify-content:space-between;
+  padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:40px;
+  position:sticky;top:0;background:rgba(0,0,0,.9);backdrop-filter:blur(8px);z-index:100}
+.nav-brand{font-size:13px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+.nav-brand span{color:var(--accent)}
+.nav-links{display:flex;gap:24px}
+.nav-links a{font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);text-decoration:none;transition:color .15s}
+.nav-links a:hover,.nav-links a.active{color:var(--text)}
+.nav-status{display:flex;align-items:center;gap:6px;font-size:10px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+.status-dot.ok{background:var(--green)}
+.status-dot.err{background:#c45050}
+
+/* ── Page header ── */
+.page-hdr{margin-bottom:32px}
+.page-tag{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);
+  margin-bottom:10px}
+.page-title{font-size:28px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+.page-sub{font-size:13px;color:var(--muted)}
+
+/* ── Status bar ── */
+.status-bar{display:flex;gap:1px;background:var(--border);margin-bottom:32px}
+.status-box{background:var(--bg2);padding:16px 20px;flex:1;min-width:100px}
+.status-box-val{font-size:20px;font-weight:700;color:var(--accent);margin-bottom:2px}
+.status-box-label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+
+/* ── Tabs ── */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:24px}
+.tab{padding:10px 20px;font-family:inherit;font-size:11px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;background:transparent;border:none;
+  color:var(--muted);cursor:pointer;transition:all .15s;border-bottom:2px solid transparent;
+  margin-bottom:-1px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ── Controls ── */
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;align-items:center}
+.search-wrap{position:relative;flex:1;min-width:200px}
+.search-wrap input{width:100%;background:transparent;border:1px solid var(--border);
+  color:var(--text);padding:8px 12px 8px 34px;font-family:inherit;font-size:12px;
+  letter-spacing:.03em;outline:none;transition:border-color .15s}
+.search-wrap input:focus{border-color:var(--accent)}
+.search-wrap input::placeholder{color:var(--muted)}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  width:12px;height:12px;opacity:.4}
+select.filter{background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  padding:8px 28px 8px 12px;font-family:inherit;font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;outline:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;
+  -webkit-appearance:none;appearance:none}
+select.filter option{background:#1a1a1a}
+.btn-sm{background:transparent;color:var(--muted);border:1px solid var(--border);
+  padding:7px 14px;font-family:inherit;font-size:10px;letter-spacing:.12em;
+  text-transform:uppercase;cursor:pointer;transition:all .15s}
+.btn-sm:hover{color:var(--text);border-color:var(--border-hi)}
+.btn-sm.primary{background:#fff;color:#000;border-color:#fff}
+.btn-sm.primary:hover{opacity:.85}
+
+/* ── Table ── */
+.table-wrap{overflow-x:auto;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{background:var(--bg3);border-bottom:1px solid var(--border)}
+th{padding:10px 14px;text-align:left;font-size:9px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap;
+  cursor:pointer;user-select:none;transition:color .15s}
+th:hover{color:var(--text)}
+th.sorted{color:var(--accent)}
+th .sort-icon{margin-left:4px;opacity:.5}
+tbody tr{border-bottom:1px solid var(--border);transition:background .12s;cursor:pointer}
+tbody tr:hover{background:var(--bg2)}
+tbody tr:last-child{border-bottom:none}
+td{padding:9px 14px;color:var(--text);vertical-align:top}
+td.muted{color:var(--muted);font-size:11px}
+td.mono{font-family:'Consolas','SF Mono',monospace;font-size:11px}
+td.accent{color:var(--accent)}
+
+/* ── Lang badge ── */
+.lang-badge{display:inline-block;font-size:8px;letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 7px;border:1px solid;border-radius:2px}
+.lang-python    {color:#7b83c4;border-color:rgba(123,131,196,.4)}
+.lang-javascript{color:#c2a84a;border-color:rgba(194,168,74,.4)}
+.lang-typescript{color:#6a9fc4;border-color:rgba(106,159,196,.4)}
+.lang-java      {color:#b07040;border-color:rgba(176,112,64,.4)}
+.lang-go        {color:#4aa0b8;border-color:rgba(74,160,184,.4)}
+.lang-rust      {color:#c47850;border-color:rgba(196,120,80,.4)}
+.lang-c         {color:#9090a8;border-color:rgba(144,144,168,.4)}
+.lang-cpp       {color:#b84070;border-color:rgba(184,64,112,.4)}
+
+/* ── Code preview ── */
+.code-prev{font-family:'Consolas','SF Mono',monospace;font-size:11px;
+  color:var(--muted);white-space:pre;overflow:hidden;text-overflow:ellipsis;
+  max-width:400px;display:block;line-height:1.4}
+
+/* ── Pagination ── */
+.pagination{display:flex;align-items:center;gap:8px;margin-top:16px;justify-content:flex-end;
+  flex-wrap:wrap}
+.page-btn{background:transparent;color:var(--muted);border:1px solid var(--border);
+  padding:5px 12px;font-family:inherit;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;cursor:pointer;transition:all .15s}
+.page-btn:hover{color:var(--text);border-color:var(--border-hi)}
+.page-btn.active{background:var(--accent-dim);color:var(--accent);border-color:var(--accent)}
+.page-btn:disabled{opacity:.3;cursor:not-allowed}
+.page-info{font-size:10px;color:var(--muted);letter-spacing:.06em}
+
+/* ── Detail modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);
+  z-index:500;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border-hi);
+  width:100%;max-width:700px;max-height:80vh;display:flex;flex-direction:column}
+.modal-hdr{display:flex;align-items:center;justify-content:space-between;
+  padding:14px 18px;border-bottom:1px solid var(--border);flex-shrink:0}
+.modal-title{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent)}
+.modal-close{background:transparent;border:none;color:var(--muted);cursor:pointer;
+  font-size:18px;line-height:1;transition:color .15s}
+.modal-close:hover{color:var(--text)}
+.modal-body{flex:1;overflow:auto;padding:18px}
+.modal-meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.meta-item{background:var(--bg3);padding:10px 14px}
+.meta-key{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:3px}
+.meta-val{font-size:12px;color:var(--text);word-break:break-all}
+.code-block{background:#0a0a14;border:1px solid var(--border);padding:14px;
+  font-family:'Consolas','SF Mono',monospace;font-size:12px;line-height:1.6;
+  overflow:auto;max-height:320px;color:#c8d0e8;
+  scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+
+/* ── Graph tab ── */
+#graphView{display:none}
+#graphView canvas,#graphView svg{display:block}
+
+/* ── Empty / loading ── */
+.empty-msg{text-align:center;padding:48px;color:var(--muted);font-size:13px;
+  letter-spacing:.06em}
+.loading{text-align:center;padding:48px;color:var(--muted);
+  font-size:10px;letter-spacing:.2em;text-transform:uppercase}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- Nav -->
+  <nav>
+    <div class="nav-brand">Code<span>Lens</span> AI</div>
+    <div class="nav-links">
+      <a href="index.html">Dashboard</a>
+      <a href="database.html" class="active">Database</a>
+    </div>
+    <div class="nav-status">
+      <div class="status-dot" id="backendDot"></div>
+      <span id="backendStatus">Checking…</span>
+    </div>
+  </nav>
+
+  <!-- Page header -->
+  <div class="page-hdr">
+    <div class="page-tag">&gt;&gt;&gt; ChromaDB · Indexed Codebase</div>
+    <h1 class="page-title">Database Explorer</h1>
+    <p class="page-sub">Browse indexed code chunks, dependency graph nodes, and RAG retrieval data.</p>
+  </div>
+
+  <!-- Status bar -->
+  <div class="status-bar">
+    <div class="status-box">
+      <div class="status-box-val" id="sbChunks">—</div>
+      <div class="status-box-label">Chunks</div>
+    </div>
+    <div class="status-box">
+      <div class="status-box-val" id="sbFiles">—</div>
+      <div class="status-box-label">Source Files</div>
+    </div>
+    <div class="status-box">
+      <div class="status-box-val" id="sbLangs">—</div>
+      <div class="status-box-label">Languages</div>
+    </div>
+    <div class="status-box">
+      <div class="status-box-val" id="sbNodes">—</div>
+      <div class="status-box-label">Graph Nodes</div>
+    </div>
+    <div class="status-box">
+      <div class="status-box-val" id="sbEdges">—</div>
+      <div class="status-box-label">Graph Edges</div>
+    </div>
+    <div class="status-box">
+      <div class="status-box-val" id="sbIndexed" style="font-size:14px">—</div>
+      <div class="status-box-label">Index Status</div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" data-tab="chunks">Code Chunks</button>
+    <button class="tab" data-tab="graph">Graph Nodes</button>
+    <button class="tab" data-tab="search">RAG Search</button>
+  </div>
+
+  <!-- ── Chunks tab ── -->
+  <div id="tabChunks">
+    <div class="controls">
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 12 12" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2">
+          <circle cx="5" cy="5" r="3.5"/>
+          <path d="M8 8l2.5 2.5" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="chunkSearch" placeholder="Search file paths, function names…" autocomplete="off">
+      </div>
+      <select class="filter" id="chunkLangFilter">
+        <option value="">All languages</option>
+      </select>
+      <button class="btn-sm" id="chunkRefresh">↺ REFRESH</button>
+    </div>
+    <div id="chunkTableWrap" class="table-wrap">
+      <div class="loading">Loading…</div>
+    </div>
+    <div class="pagination" id="chunkPager"></div>
+  </div>
+
+  <!-- ── Graph tab ── -->
+  <div id="tabGraph" style="display:none">
+    <div class="controls">
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 12 12" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2">
+          <circle cx="5" cy="5" r="3.5"/>
+          <path d="M8 8l2.5 2.5" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="graphSearch" placeholder="Search file or module name…" autocomplete="off">
+      </div>
+      <select class="filter" id="graphLangFilter">
+        <option value="">All languages</option>
+      </select>
+      <button class="btn-sm" id="graphRefresh">↺ REFRESH</button>
+    </div>
+    <div id="graphTableWrap" class="table-wrap">
+      <div class="loading">Loading…</div>
+    </div>
+    <div class="pagination" id="graphPager"></div>
+  </div>
+
+  <!-- ── RAG Search tab ── -->
+  <div id="tabSearch" style="display:none">
+    <div class="controls" style="margin-bottom:16px">
+      <div class="search-wrap" style="max-width:500px">
+        <svg class="search-icon" viewBox="0 0 12 12" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2">
+          <circle cx="5" cy="5" r="3.5"/>
+          <path d="M8 8l2.5 2.5" stroke-linecap="round"/>
+        </svg>
+        <input type="text" id="ragQuery" placeholder="Ask a question about the codebase…" autocomplete="off">
+      </div>
+      <select class="filter" id="ragTopK">
+        <option value="3">Top 3</option>
+        <option value="5" selected>Top 5</option>
+        <option value="10">Top 10</option>
+      </select>
+      <button class="btn-sm primary" id="ragSearch">SEARCH</button>
+    </div>
+    <div id="ragResults">
+      <div class="empty-msg">Enter a question above to search the indexed codebase.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ── Detail Modal ── -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-hdr">
+      <span class="modal-title" id="modalTitle">Chunk Details</span>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<script>
+var API = 'http://localhost:8080';
+
+// ── Backend status ────────────────────────────────────────────────────────────
+async function checkBackend(){
+  try{
+    var r = await fetch(API+'/health', {signal:AbortSignal.timeout(3000)});
+    document.getElementById('backendDot').className = r.ok ? 'status-dot ok' : 'status-dot err';
+    document.getElementById('backendStatus').textContent = r.ok ? 'Backend online' : 'Backend error';
+  } catch(e){
+    document.getElementById('backendDot').className = 'status-dot err';
+    document.getElementById('backendStatus').textContent = 'Backend offline';
+  }
+}
+checkBackend();
+setInterval(checkBackend, 15000);
+
+// ── Global data ───────────────────────────────────────────────────────────────
+var allChunks = [];
+var allGraph  = {nodes:[], links:[]};
+
+// ── Load status ───────────────────────────────────────────────────────────────
+async function loadStatus(){
+  try{
+    var r = await fetch(API+'/rag-status', {signal:AbortSignal.timeout(4000)});
+    if(r.ok){
+      var d = await r.json();
+      document.getElementById('sbChunks').textContent  = (d.chunk_count||0).toLocaleString();
+      document.getElementById('sbFiles').textContent   = (d.file_count||0).toLocaleString();
+      document.getElementById('sbLangs').textContent   = (d.languages||[]).length;
+      document.getElementById('sbIndexed').textContent = d.indexed ? '✓ Indexed' : '✗ Empty';
+      document.getElementById('sbIndexed').style.color = d.indexed ? 'var(--green)' : '#c45050';
+    }
+  } catch(e){}
+  try{
+    var g = await fetch(API+'/graph', {signal:AbortSignal.timeout(4000)});
+    if(g.ok){
+      var gd = await g.json();
+      document.getElementById('sbNodes').textContent = (gd.nodes||[]).length.toLocaleString();
+      document.getElementById('sbEdges').textContent = (gd.links||[]).length.toLocaleString();
+      allGraph = gd;
+    }
+  } catch(e){}
+}
+loadStatus();
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+var activeTab = 'chunks';
+document.querySelectorAll('.tab').forEach(function(tab){
+  tab.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+    tab.classList.add('active');
+    activeTab = tab.dataset.tab;
+    document.getElementById('tabChunks').style.display = activeTab==='chunks' ? '' : 'none';
+    document.getElementById('tabGraph').style.display  = activeTab==='graph'  ? '' : 'none';
+    document.getElementById('tabSearch').style.display = activeTab==='search' ? '' : 'none';
+    if(activeTab==='graph' && allGraph.nodes.length===0) loadGraphTable();
+  });
+});
+
+// ── Utility ───────────────────────────────────────────────────────────────────
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function langBadge(lang){
+  return '<span class="lang-badge lang-'+(lang||'')+'">'+escHtml(lang||'?')+'</span>';
+}
+
+// ── Chunks tab ────────────────────────────────────────────────────────────────
+var chunkPage = 1;
+var CHUNK_PAGE_SIZE = 30;
+var chunkFilter = {search:'', lang:''};
+
+async function loadChunks(){
+  // We can't directly query ChromaDB from the browser, so we use the /chat endpoint
+  // to do a broad search. Instead, we'll hit a synthetic "list" by querying with empty
+  // string (fallback: we show a message asking to use search).
+  // For a real list we'd need a dedicated /chunks endpoint — let's add a note
+  // and use the graph data + rag-status to show file-level info.
+  renderChunkTable();
+}
+
+// Since we don't have a /chunks/list endpoint yet, show a helpful placeholder
+// with file-level info derived from rag-status + graph
+function renderChunkTable(){
+  var wrap = document.getElementById('chunkTableWrap');
+  var nodes = allGraph.nodes || [];
+  var q = chunkFilter.search.toLowerCase();
+  var langF = chunkFilter.lang;
+
+  var filtered = nodes.filter(function(n){
+    return (!q || n.id.toLowerCase().includes(q) || n.label.toLowerCase().includes(q)) &&
+           (!langF || n.language===langF);
+  });
+
+  // Update lang filter options
+  var langs = {};
+  nodes.forEach(function(n){ if(n.language) langs[n.language]=true; });
+  var langSel = document.getElementById('chunkLangFilter');
+  var curVal = langSel.value;
+  langSel.innerHTML = '<option value="">All languages</option>';
+  Object.keys(langs).sort().forEach(function(l){
+    var o = document.createElement('option');
+    o.value=l; o.textContent=l;
+    if(l===curVal) o.selected=true;
+    langSel.appendChild(o);
+  });
+
+  // Paging
+  var total = filtered.length;
+  var start = (chunkPage-1)*CHUNK_PAGE_SIZE;
+  var page  = filtered.slice(start, start+CHUNK_PAGE_SIZE);
+
+  if(!total){
+    wrap.innerHTML = '<div class="empty-msg">'+(nodes.length===0
+      ? 'No data. Run <strong>Index Workspace</strong> in VS Code then refresh.'
+      : 'No results matching your filter.')+'</div>';
+    document.getElementById('chunkPager').innerHTML='';
+    return;
+  }
+
+  var rows = page.map(function(n, i){
+    var inDeg = (allGraph.links||[]).filter(function(l){
+      return (l.target===n.id||(l.target&&l.target.id===n.id));
+    }).length;
+    var outDeg= (allGraph.links||[]).filter(function(l){
+      return (l.source===n.id||(l.source&&l.source.id===n.id));
+    }).length;
+    return '<tr onclick="showFileDetail('+JSON.stringify(n).replace(/</g,'\\u003c')+')">'+
+      '<td class="mono accent">'+escHtml(n.id)+'</td>'+
+      '<td>'+langBadge(n.language)+'</td>'+
+      '<td class="muted">'+outDeg+'</td>'+
+      '<td class="muted">'+inDeg+'</td>'+
+      '</tr>';
+  }).join('');
+
+  wrap.innerHTML = '<table>'+
+    '<thead><tr>'+
+      '<th>File Path</th>'+
+      '<th>Language</th>'+
+      '<th>Imports</th>'+
+      '<th>Imported By</th>'+
+    '</tr></thead>'+
+    '<tbody>'+rows+'</tbody>'+
+    '</table>';
+
+  renderPager('chunkPager', chunkPage, Math.ceil(total/CHUNK_PAGE_SIZE), function(p){
+    chunkPage=p; renderChunkTable();
+  });
+}
+
+document.getElementById('chunkSearch').addEventListener('input', function(){
+  chunkFilter.search = this.value;
+  chunkPage=1;
+  renderChunkTable();
+});
+document.getElementById('chunkLangFilter').addEventListener('change', function(){
+  chunkFilter.lang = this.value;
+  chunkPage=1;
+  renderChunkTable();
+});
+document.getElementById('chunkRefresh').addEventListener('click', function(){
+  loadStatus().then(function(){ renderChunkTable(); });
+});
+
+// ── Graph tab ─────────────────────────────────────────────────────────────────
+var graphPage = 1;
+var GRAPH_PAGE_SIZE = 30;
+var graphFilter = {search:'', lang:''};
+
+function loadGraphTable(){
+  renderGraphTable();
+}
+
+function renderGraphTable(){
+  var wrap = document.getElementById('graphTableWrap');
+  var nodes = allGraph.nodes || [];
+  var q = graphFilter.search.toLowerCase();
+  var langF = graphFilter.lang;
+
+  var filtered = nodes.map(function(n){
+    var inDeg = (allGraph.links||[]).filter(function(l){
+      return (l.target===n.id||(l.target&&l.target.id===n.id));
+    }).length;
+    var outDeg= (allGraph.links||[]).filter(function(l){
+      return (l.source===n.id||(l.source&&l.source.id===n.id));
+    }).length;
+    return Object.assign({}, n, {inDeg:inDeg, outDeg:outDeg, degree:inDeg+outDeg});
+  }).filter(function(n){
+    return (!q || n.id.toLowerCase().includes(q) || n.label.toLowerCase().includes(q)) &&
+           (!langF || n.language===langF);
+  });
+
+  // Sort by degree desc
+  filtered.sort(function(a,b){ return b.degree - a.degree; });
+
+  // Lang filter options
+  var langs = {};
+  nodes.forEach(function(n){ if(n.language) langs[n.language]=true; });
+  var langSel = document.getElementById('graphLangFilter');
+  var curVal = langSel.value;
+  langSel.innerHTML = '<option value="">All languages</option>';
+  Object.keys(langs).sort().forEach(function(l){
+    var o = document.createElement('option');
+    o.value=l; o.textContent=l;
+    if(l===curVal) o.selected=true;
+    langSel.appendChild(o);
+  });
+
+  var total = filtered.length;
+  var start = (graphPage-1)*GRAPH_PAGE_SIZE;
+  var page  = filtered.slice(start, start+GRAPH_PAGE_SIZE);
+
+  if(!total){
+    wrap.innerHTML = '<div class="empty-msg">'+(nodes.length===0
+      ? 'No graph data. Run Index Workspace, then reload.'
+      : 'No matching nodes.')+'</div>';
+    document.getElementById('graphPager').innerHTML='';
+    return;
+  }
+
+  var rows = page.map(function(n){
+    var bar = Math.min(n.degree * 8, 100);
+    return '<tr onclick="showFileDetail('+JSON.stringify({id:n.id,label:n.label,language:n.language}).replace(/</g,'\\u003c')+')">'+
+      '<td class="mono accent">'+escHtml(n.id)+'</td>'+
+      '<td>'+langBadge(n.language)+'</td>'+
+      '<td class="muted">'+n.outDeg+'</td>'+
+      '<td class="muted">'+n.inDeg+'</td>'+
+      '<td><div style="height:4px;background:var(--border);width:80px;border-radius:2px">'+
+        '<div style="height:4px;background:var(--accent);width:'+bar+'%;border-radius:2px"></div>'+
+      '</div></td>'+
+      '</tr>';
+  }).join('');
+
+  wrap.innerHTML = '<table>'+
+    '<thead><tr>'+
+      '<th>File Path</th>'+
+      '<th>Language</th>'+
+      '<th>Imports</th>'+
+      '<th>Imported By</th>'+
+      '<th>Degree</th>'+
+    '</tr></thead>'+
+    '<tbody>'+rows+'</tbody>'+
+    '</table>';
+
+  renderPager('graphPager', graphPage, Math.ceil(total/GRAPH_PAGE_SIZE), function(p){
+    graphPage=p; renderGraphTable();
+  });
+}
+
+document.getElementById('graphSearch').addEventListener('input', function(){
+  graphFilter.search = this.value;
+  graphPage=1;
+  renderGraphTable();
+});
+document.getElementById('graphLangFilter').addEventListener('change', function(){
+  graphFilter.lang = this.value;
+  graphPage=1;
+  renderGraphTable();
+});
+document.getElementById('graphRefresh').addEventListener('click', function(){
+  loadStatus().then(function(){ renderGraphTable(); });
+});
+
+// ── RAG search tab ────────────────────────────────────────────────────────────
+document.getElementById('ragSearch').addEventListener('click', runRagSearch);
+document.getElementById('ragQuery').addEventListener('keydown', function(e){
+  if(e.key==='Enter') runRagSearch();
+});
+
+async function runRagSearch(){
+  var query = document.getElementById('ragQuery').value.trim();
+  var topK  = parseInt(document.getElementById('ragTopK').value);
+  var el    = document.getElementById('ragResults');
+  if(!query){ el.innerHTML='<div class="empty-msg">Enter a question first.</div>'; return; }
+
+  el.innerHTML = '<div class="loading">Searching…</div>';
+  try{
+    var r = await fetch(API+'/chat', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({query:query, top_k:topK}),
+      signal: AbortSignal.timeout(60000),
+    });
+    var data = await r.json();
+
+    var sourcesHtml = '';
+    if(data.sources && data.sources.length){
+      sourcesHtml = '<div style="margin-top:20px">'+
+        '<div style="font-size:9px;letter-spacing:.16em;text-transform:uppercase;'+
+             'color:var(--muted);margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid var(--border)">'+
+             'Source Chunks ('+data.sources.length+')</div>'+
+        data.sources.map(function(s){
+          return '<div style="padding:8px 12px;background:var(--bg3);border:1px solid var(--border);'+
+                 'margin-bottom:6px;font-size:11px">'+
+            '<span style="color:var(--accent);font-family:monospace">'+escHtml(s.file_path)+'</span>'+
+            '<span style="color:var(--muted);margin:0 8px">L'+s.start_line+'-'+s.end_line+'</span><br>'+
+            '<span style="color:var(--muted);font-family:monospace;font-size:10px">'+
+              escHtml((s.snippet||'').replace(/\\n/g,' ').slice(0,120))+'…</span>'+
+          '</div>';
+        }).join('')+
+        '</div>';
+    }
+
+    el.innerHTML =
+      '<div style="background:var(--bg2);border:1px solid var(--border);padding:20px;'+
+           'white-space:pre-wrap;font-size:13px;line-height:1.7;margin-bottom:4px">'+
+        escHtml(data.answer||'No answer.')+
+      '</div>'+sourcesHtml;
+  } catch(e){
+    el.innerHTML='<div class="empty-msg" style="color:#c45050">Error: '+escHtml(String(e))+'</div>';
+  }
+}
+
+// ── Pagination helper ─────────────────────────────────────────────────────────
+function renderPager(id, current, total, onPage){
+  var el = document.getElementById(id);
+  if(total<=1){ el.innerHTML=''; return; }
+  var html = '<span class="page-info">'+((current-1)*30+1)+'–'+Math.min(current*30, total*30)+'</span>';
+  html += '<button class="page-btn" '+(current===1?'disabled':'')+' onclick="('+onPage+')('+Math.max(1,current-1)+')">‹ PREV</button>';
+  // Page numbers (max 7 shown)
+  var start = Math.max(1, current-3), end = Math.min(total, current+3);
+  for(var p=start;p<=end;p++){
+    html += '<button class="page-btn'+(p===current?' active':'')+'" onclick="('+onPage+')('+p+')">'+p+'</button>';
+  }
+  html += '<button class="page-btn" '+(current===total?'disabled':'')+' onclick="('+onPage+')('+Math.min(total,current+1)+')">NEXT ›</button>';
+  el.innerHTML = html;
+}
+
+// ── File detail modal ─────────────────────────────────────────────────────────
+function showFileDetail(node){
+  var imports = (allGraph.links||[]).filter(function(l){
+    return (l.source===node.id||(l.source&&l.source.id===node.id));
+  }).map(function(l){ return l.target.id||l.target; });
+  var importedBy = (allGraph.links||[]).filter(function(l){
+    return (l.target===node.id||(l.target&&l.target.id===node.id));
+  }).map(function(l){ return l.source.id||l.source; });
+
+  document.getElementById('modalTitle').textContent = node.label;
+  document.getElementById('modalBody').innerHTML =
+    '<div class="modal-meta">'+
+      '<div class="meta-item"><div class="meta-key">File Path</div><div class="meta-val">'+escHtml(node.id)+'</div></div>'+
+      '<div class="meta-item"><div class="meta-key">Language</div><div class="meta-val">'+langBadge(node.language)+'</div></div>'+
+      '<div class="meta-item"><div class="meta-key">Imports</div><div class="meta-val">'+imports.length+' files</div></div>'+
+      '<div class="meta-item"><div class="meta-key">Imported By</div><div class="meta-val">'+importedBy.length+' files</div></div>'+
+    '</div>'+
+    (imports.length ? '<div style="margin-bottom:14px"><div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Imports →</div>'+
+      imports.map(function(id){ return '<div style="font-family:monospace;font-size:11px;color:var(--muted);padding:2px 0">'+escHtml(id)+'</div>'; }).join('') + '</div>' : '')+
+    (importedBy.length ? '<div><div style="font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">← Imported By</div>'+
+      importedBy.map(function(id){ return '<div style="font-family:monospace;font-size:11px;color:var(--muted);padding:2px 0">'+escHtml(id)+'</div>'; }).join('') + '</div>' : '');
+
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+document.getElementById('modalClose').addEventListener('click', function(){
+  document.getElementById('modalOverlay').classList.remove('open');
+});
+document.getElementById('modalOverlay').addEventListener('click', function(e){
+  if(e.target===this) this.classList.remove('open');
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadStatus().then(function(){
+  renderChunkTable();
+  renderGraphTable();
+});
+</script>
+</body>
+</html>

@@ -227,19 +227,44 @@ async function doSend(){
   sendBtn.disabled=true;
 
   var thinkWrap = addMsg('ai','<span style="color:var(--muted)">thinking…</span>');
+  var msgBody = thinkWrap.querySelector('.msg-body');
+  var accumulated = '';
+  var gotFirstToken = false;
 
   try{
-    var res = await fetch('http://localhost:${port}/chat',{
+    var res = await fetch('http://localhost:${port}/chat/stream',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({query:q,top_k:5})
     });
-    var data = await res.json();
-    thinkWrap.querySelector('.msg-body').innerHTML = renderMd(data.answer ?? JSON.stringify(data));
+    var reader = res.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = '';
+    while(true){
+      var chunk = await reader.read();
+      if(chunk.done) break;
+      buf += decoder.decode(chunk.value, {stream:true});
+      var lines = buf.split('\\n');
+      buf = lines.pop();
+      for(var line of lines){
+        if(!line) continue;
+        try{
+          var ev = JSON.parse(line);
+          if(ev.type==='status'){
+            msgBody.innerHTML='<span style="color:var(--muted)">'+ev.message+'</span>';
+          } else if(ev.type==='token' && ev.token){
+            if(!gotFirstToken){ msgBody.innerHTML=''; gotFirstToken=true; }
+            accumulated += ev.token;
+            msgBody.innerHTML = renderMd(accumulated);
+          }
+        }catch(pe){}
+      }
+    }
+    if(!gotFirstToken) msgBody.textContent='No response received.';
   } catch(e){
     thinkWrap.className='msg err';
     thinkWrap.querySelector('.msg-lbl').textContent='Error';
-    thinkWrap.querySelector('.msg-body').textContent='Cannot reach backend — is the server running?';
+    msgBody.textContent='Cannot reach backend — is the server running?';
   }
   sendBtn.disabled=false;
   inpEl.focus();

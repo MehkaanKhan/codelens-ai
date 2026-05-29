@@ -161,7 +161,7 @@ def main():
     graph = build_graph(repo)
     output.write_text(json.dumps(graph, indent=2), encoding="utf-8")
 
-    print(f"Graph: {len(graph['nodes'])} nodes, {len(graph['links'])} links → {output}")
+    print(f"Graph: {len(graph['nodes'])} nodes, {len(graph['links'])} links -> {output}")
 
 
 if __name__ == "__main__":

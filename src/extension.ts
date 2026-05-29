@@ -102,6 +102,83 @@ async function indexWorkspace(port: number): Promise<void> {
     );
 }
 
+function registerChatParticipant(context: vscode.ExtensionContext, port: number) {
+    const participant = vscode.chat.createChatParticipant(
+        'codelens-ai',
+        async (
+            request: vscode.ChatRequest,
+            _context: vscode.ChatContext,
+            stream: vscode.ChatResponseStream,
+            token: vscode.CancellationToken
+        ) => {
+            const query = request.prompt.trim();
+            if (!query) {
+                stream.markdown('Ask me anything about your indexed codebase.');
+                return;
+            }
+
+            stream.progress('Searching codebase...');
+
+            try {
+                const res = await fetch(`http://localhost:${port}/chat`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query, top_k: 5 }),
+                    signal: token.isCancellationRequested ? AbortSignal.abort() : undefined,
+                });
+
+                if (!res.ok) {
+                    stream.markdown('⚠️ Backend error. Make sure the CodeLens AI server is running.');
+                    return;
+                }
+
+                const data = await res.json() as { answer: string; sources?: { file_path: string; start_line: number; end_line: number }[] };
+
+                // Main answer
+                stream.markdown(data.answer);
+
+                // Source citations as clickable file links
+                if (data.sources && data.sources.length > 0) {
+                    stream.markdown('\n\n---\n**Sources:**');
+                    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+                    for (const src of data.sources) {
+                        if (workspaceRoot) {
+                            const fileUri = vscode.Uri.joinPath(workspaceRoot, src.file_path);
+                            stream.anchor(
+                                new vscode.Location(fileUri, new vscode.Range(
+                                    Math.max(0, src.start_line - 1), 0,
+                                    Math.max(0, src.end_line - 1), 0
+                                )),
+                                `${src.file_path} L${src.start_line}-${src.end_line}`
+                            );
+                        } else {
+                            stream.markdown(`\n- \`${src.file_path}\` L${src.start_line}-${src.end_line}`);
+                        }
+                    }
+                }
+
+            } catch (e) {
+                if (!token.isCancellationRequested) {
+                    stream.markdown('⚠️ Cannot reach backend. Run **CodeLens AI: Start Server** or check that Python is installed.');
+                }
+            }
+        }
+    );
+
+    participant.iconPath = new vscode.ThemeIcon('code');
+    participant.followupProvider = {
+        provideFollowups(_result, _context, _token) {
+            return [
+                { prompt: 'What are the main entry points?', label: 'Entry points', command: 'codelens-ai' },
+                { prompt: 'What dependencies does this project use?', label: 'Dependencies', command: 'codelens-ai' },
+                { prompt: 'Summarize the overall architecture.', label: 'Architecture', command: 'codelens-ai' },
+            ];
+        }
+    };
+
+    context.subscriptions.push(participant);
+}
+
 export function activate(context: vscode.ExtensionContext) {
     statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 0);
     statusBarItem.command = 'codelens-ai.openChat';
@@ -110,6 +187,9 @@ export function activate(context: vscode.ExtensionContext) {
     startServer(context);
 
     const { port } = getConfig();
+
+    // Native VS Code Chat participant (@codelens-ai)
+    registerChatParticipant(context, port);
 
     context.subscriptions.push(
         vscode.commands.registerCommand('codelens-ai.openChat', () => {
