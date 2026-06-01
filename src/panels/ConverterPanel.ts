@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-const LANGUAGES = ['python','javascript','typescript','java','c','cpp','rust','go'];
+const LANGUAGES = ['python','javascript','typescript','java','cpp'];
 
 const EXT_TO_LANG: Record<string, string> = {
     '.py': 'python', '.js': 'javascript', '.ts': 'typescript',
@@ -43,7 +43,7 @@ export class ConverterPanel {
                     const uris = await vscode.window.showOpenDialog({
                         canSelectMany: false,
                         filters: {
-                            'Source Files': ['py','js','ts','java','c','cpp','cc','cxx','rs','go'],
+                            'Source Files': ['py','js','ts','java','cpp','cc','cxx'],
                             'All Files': ['*'],
                         },
                         openLabel: `Load ${msg.pane === 'src' ? 'Source' : 'Target'} File`,
@@ -553,7 +553,7 @@ const sfTgtCode = document.getElementById('tgtCode');
 sfTgtLang.value = 'javascript';
 
 const EXT_MAP = {'.py':'python','.js':'javascript','.ts':'typescript',
-  '.java':'java','.c':'c','.cpp':'cpp','.cc':'cpp','.cxx':'cpp','.rs':'rust','.go':'go'};
+  '.java':'java','.cpp':'cpp','.cc':'cpp','.cxx':'cpp'};
 
 function applyFile(pane, text, lang, name){
   if(pane==='src'){

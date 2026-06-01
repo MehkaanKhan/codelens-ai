@@ -32,7 +32,7 @@ async function startServer(context: vscode.ExtensionContext): Promise<void> {
     if (!workspaceRoot) return;
 
     const { python, port } = getConfig();
-    const serverScript = path.join(workspaceRoot, 'tools', 'fastapi_server.py');
+    const serverScript = path.join(workspaceRoot, 'backend', 'fastapi_server.py');
 
     statusBarItem.text = '$(sync~spin) CodeLens AI: Starting...';
     statusBarItem.tooltip = 'CodeLens AI backend is starting';

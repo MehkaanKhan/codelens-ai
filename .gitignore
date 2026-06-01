@@ -28,17 +28,17 @@ out/
 .ipynb_checkpoints/
 
 # Dataset files — large, regenerable
-finetune/data/raw/*.jsonl
-finetune/data/processed/*.jsonl
-finetune/data/raw/*.json
-finetune/data/processed/*.json
+dataset/data/raw/*.jsonl
+dataset/data/processed/*.jsonl
+dataset/data/raw/*.json
+dataset/data/processed/*.json
 
 # Model weights and exports
-finetune/models/
-finetune/checkpoints/
-finetune/outputs/
-finetune/output/
-finetune/llama.cpp/
+model/models/
+model/checkpoints/
+model/outputs/
+model/output/
+model/llama.cpp/
 *.gguf
 *.bin
 *.safetensors
@@ -47,7 +47,9 @@ finetune/llama.cpp/
 
 # Build artifacts / test zips
 *.zip
-git
+
+# Junk / scratch folder
+junk/
 
 # ChromaDB
 chroma_db/
