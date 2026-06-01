@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+<title>CodeLens AI — Database Showcase</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+:root{
+  --bg:#000;
+  --bg2:#0a0a0a;
+  --bg3:#111;
+  --border:rgba(255,255,255,0.08);
+  --border-hi:rgba(255,255,255,0.18);
+  --text:#e2e2e2;
+  --muted:rgba(255,255,255,0.38);
+  --accent:#8b8fc8;
+  --accent2:#6a9fc4;
+  --accent-dim:rgba(139,143,200,0.12);
+  --green:#4caf72;
+  --red:#c45050;
+  --orange:#c49050;
+  --grid:52px;
+}
+
+html,body{min-height:100%;background:var(--bg);color:var(--text);
+  font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.6}
+
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(var(--border) 1px,transparent 1px),
+    linear-gradient(90deg,var(--border) 1px,transparent 1px);
+  background-size:var(--grid) var(--grid)}
+
+.page{position:relative;z-index:1;max-width:1200px;margin:0 auto;padding:0 24px 80px}
+
+/* ── Nav ── */
+nav{display:flex;align-items:center;justify-content:space-between;
+  padding:16px 0;border-bottom:1px solid var(--border);margin-bottom:40px;
+  position:sticky;top:0;background:rgba(0,0,0,.92);backdrop-filter:blur(8px);z-index:100}
+.nav-brand{font-size:13px;font-weight:700;letter-spacing:.2em;text-transform:uppercase}
+.nav-brand span{color:var(--accent)}
+.nav-links{display:flex;gap:24px}
+.nav-links a{font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);text-decoration:none;transition:color .15s}
+.nav-links a:hover,.nav-links a.active{color:var(--text)}
+.nav-status{display:flex;align-items:center;gap:6px;font-size:10px;
+  letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:pulse 2s infinite}
+.status-dot.ok{background:var(--green)}
+.status-dot.err{background:var(--red);animation:none}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── Page header ── */
+.page-hdr{margin-bottom:32px}
+.page-tag{font-size:9px;letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
+.page-title{font-size:28px;font-weight:700;letter-spacing:-.02em;margin-bottom:8px}
+.page-sub{font-size:13px;color:var(--muted)}
+
+/* ── Stat bar ── */
+.stat-bar{display:flex;gap:1px;background:var(--border);border:1px solid var(--border);margin-bottom:32px}
+.stat-box{background:var(--bg2);padding:18px 20px;flex:1;min-width:100px}
+.stat-box-val{font-size:22px;font-weight:700;letter-spacing:-.02em;color:var(--accent);margin-bottom:3px}
+.stat-box-label{font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+
+/* ── Tabs ── */
+.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:28px}
+.tab{padding:10px 20px;font-family:inherit;font-size:11px;font-weight:600;
+  letter-spacing:.14em;text-transform:uppercase;background:transparent;border:none;
+  color:var(--muted);cursor:pointer;transition:all .15s;
+  border-bottom:2px solid transparent;margin-bottom:-1px}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ── Section ── */
+.section{display:none}
+.section.active{display:block}
+.sec-hdr{margin-bottom:20px}
+.sec-tag{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.sec-title{font-size:16px;font-weight:600;letter-spacing:-.01em}
+
+/* ── Cards / blocks ── */
+.block{background:var(--bg2);border:1px solid var(--border);padding:20px;margin-bottom:16px}
+.block-title{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:14px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+
+/* ── KV rows ── */
+.kv{display:grid;grid-template-columns:160px 1fr;font-size:12px}
+.kv-row{display:contents}
+.kv-row .k,.kv-row .v{padding:8px 0;border-bottom:1px solid var(--border)}
+.kv-row:last-child .k,.kv-row:last-child .v{border-bottom:none}
+.kv-row .k{color:var(--muted);font-size:10px;letter-spacing:.08em;text-transform:uppercase}
+.kv-row .v code{font-family:'Consolas','SF Mono',monospace;font-size:11px;color:var(--accent2)}
+
+/* ── Language badge ── */
+.lb{display:inline-block;font-size:8px;letter-spacing:.1em;text-transform:uppercase;
+  padding:2px 7px;border:1px solid;border-radius:2px}
+.lb-python    {color:#7b83c4;border-color:rgba(123,131,196,.4)}
+.lb-javascript{color:#c2a84a;border-color:rgba(194,168,74,.4)}
+.lb-typescript{color:#6a9fc4;border-color:rgba(106,159,196,.4)}
+.lb-java      {color:#b07040;border-color:rgba(176,112,64,.4)}
+.lb-cpp       {color:#b84070;border-color:rgba(184,64,112,.4)}
+.lb-c         {color:#9090a8;border-color:rgba(144,144,168,.4)}
+.lb-default   {color:rgba(255,255,255,.38);border-color:rgba(255,255,255,.12)}
+
+/* ── Controls / inputs ── */
+.controls{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+.search-wrap{position:relative;flex:1;min-width:200px}
+.search-wrap input{width:100%;background:transparent;border:1px solid var(--border);
+  color:var(--text);padding:8px 12px 8px 34px;font-family:inherit;font-size:12px;
+  letter-spacing:.03em;outline:none;transition:border-color .15s}
+.search-wrap input:focus{border-color:var(--accent)}
+.search-wrap input::placeholder{color:var(--muted)}
+.search-icon{position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  width:12px;height:12px;opacity:.4}
+select.filter{background:var(--bg2);border:1px solid var(--border);color:var(--text);
+  padding:8px 28px 8px 12px;font-family:inherit;font-size:11px;letter-spacing:.06em;
+  text-transform:uppercase;outline:none;cursor:pointer;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='rgba(255,255,255,0.4)'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 8px center;
+  -webkit-appearance:none;appearance:none}
+select.filter option{background:#1a1a1a}
+
+/* ── Buttons ── */
+.btn{background:transparent;color:var(--muted);border:1px solid var(--border);
+  padding:7px 16px;font-family:inherit;font-size:10px;font-weight:600;
+  letter-spacing:.12em;text-transform:uppercase;cursor:pointer;transition:all .15s}
+.btn:hover:not(:disabled){color:var(--text);border-color:var(--border-hi)}
+.btn.primary{background:#fff;color:#000;border-color:#fff}
+.btn.primary:hover:not(:disabled){opacity:.85}
+.btn.accent{background:var(--accent-dim);color:var(--accent);border-color:rgba(139,143,200,.3)}
+.btn.accent:hover:not(:disabled){background:rgba(139,143,200,.2)}
+.btn:disabled{opacity:.3;cursor:not-allowed}
+
+/* ── Browse table ── */
+.table-wrap{overflow-x:auto;border:1px solid var(--border)}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead tr{background:var(--bg3);border-bottom:1px solid var(--border)}
+th{padding:9px 14px;text-align:left;font-size:9px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);font-weight:600;white-space:nowrap}
+tbody tr{border-bottom:1px solid var(--border);transition:background .12s;cursor:pointer}
+tbody tr:hover{background:var(--bg2)}
+tbody tr:last-child{border-bottom:none}
+td{padding:9px 14px;vertical-align:middle}
+.td-mono{font-family:'Consolas','SF Mono',monospace;font-size:11px}
+.td-muted{color:var(--muted);font-size:11px}
+.td-accent{color:var(--accent2)}
+.td-preview{font-family:'Consolas','SF Mono',monospace;font-size:10px;color:var(--muted);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:340px}
+.expand-row{display:none}
+.expand-row.open{display:table-row}
+.expand-row td{padding:0 14px 14px}
+.expand-row pre{font-size:11px;overflow-x:auto}
+.expand-row pre code{border-radius:0}
+
+/* ── Pagination ── */
+.pagination{display:flex;align-items:center;gap:8px;margin-top:14px;justify-content:space-between;flex-wrap:wrap}
+.page-btn{background:transparent;color:var(--muted);border:1px solid var(--border);
+  padding:5px 12px;font-family:inherit;font-size:10px;letter-spacing:.1em;
+  text-transform:uppercase;cursor:pointer;transition:all .15s}
+.page-btn:hover:not(:disabled){color:var(--text);border-color:var(--border-hi)}
+.page-btn:disabled{opacity:.3;cursor:not-allowed}
+.page-info{font-size:10px;color:var(--muted);letter-spacing:.06em}
+
+/* ── Query Engine ── */
+.mode-row{display:flex;gap:1px;background:var(--border);margin-bottom:20px}
+.mode-btn{flex:1;background:var(--bg2);border:none;padding:14px 16px;
+  font-family:inherit;cursor:pointer;text-align:left;color:var(--muted);transition:all .15s}
+.mode-btn:hover{background:var(--bg3);color:var(--text)}
+.mode-btn.active{background:var(--accent-dim);color:var(--accent)}
+.mode-btn-title{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+.mode-btn-sub{font-family:'Consolas','SF Mono',monospace;font-size:10px;opacity:.6}
+
+.qfield{margin-bottom:18px}
+.qlabel{font-size:9px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.qlabel-op{color:var(--accent);font-family:'Consolas','SF Mono',monospace;
+  font-size:9px;letter-spacing:.04em;text-transform:none;opacity:.8}
+.qerr{color:var(--red);display:none;font-family:inherit;text-transform:uppercase;margin-left:auto}
+
+textarea.q-input{width:100%;background:transparent;border:1px solid var(--border);
+  color:var(--text);font-family:'Consolas','SF Mono',monospace;font-size:12px;
+  padding:10px 12px;outline:none;resize:vertical;line-height:1.6;
+  transition:border-color .15s}
+textarea.q-input:focus{border-color:var(--accent)}
+textarea.q-input::placeholder{color:var(--muted)}
+textarea.q-input.err{border-color:var(--red)}
+input.q-input-text{width:100%;background:transparent;border:1px solid var(--border);
+  color:var(--text);font-family:inherit;font-size:13px;
+  padding:10px 12px;outline:none;transition:border-color .15s;letter-spacing:.02em}
+input.q-input-text:focus{border-color:var(--accent)}
+input.q-input-text::placeholder{color:var(--muted)}
+
+.ex-chips{display:flex;align-items:center;gap:6px;margin-top:8px;flex-wrap:wrap}
+.ex-label{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);flex-shrink:0}
+.ex-chip{background:transparent;color:var(--muted);border:1px solid var(--border);
+  padding:3px 10px;font-family:'Consolas','SF Mono',monospace;font-size:10px;
+  cursor:pointer;transition:all .12s;letter-spacing:.02em}
+.ex-chip:hover{color:var(--accent);border-color:rgba(139,143,200,.4)}
+
+.q-row{display:flex;gap:16px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px}
+.q-col label{font-size:9px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--muted);display:block;margin-bottom:6px}
+input[type=number].q-num{width:80px;background:transparent;border:1px solid var(--border);
+  color:var(--text);padding:8px 10px;font-family:inherit;font-size:12px;outline:none}
+input[type=number].q-num:focus{border-color:var(--accent)}
+input[type=range]{accent-color:var(--accent);width:130px;cursor:pointer}
+.topk-val{color:var(--accent);font-weight:600}
+
+.q-preview-wrap{margin-top:4px}
+.q-preview-label{font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:8px}
+.q-preview{background:#050508;border:1px solid var(--border);
+  padding:14px 16px;font-family:'Consolas','SF Mono',monospace;
+  font-size:12px;color:#a0b8a0;overflow-x:auto;white-space:pre;line-height:1.7}
+
+.q-status{margin-top:14px;font-size:11px;color:var(--muted);
+  letter-spacing:.06em;text-transform:uppercase;min-height:18px}
+
+/* ── Result cards ── */
+.result-card{border:1px solid var(--border);margin-bottom:8px}
+.result-hdr{padding:11px 14px;display:flex;align-items:center;gap:12px;
+  cursor:pointer;border-bottom:1px solid transparent;transition:background .12s;
+  background:var(--bg2)}
+.result-hdr:hover{background:var(--bg3)}
+.result-hdr.open{border-bottom-color:var(--border)}
+.result-rank{background:var(--bg3);width:26px;height:26px;display:flex;
+  align-items:center;justify-content:center;font-size:10px;font-weight:700;
+  color:var(--muted);flex-shrink:0;letter-spacing:.06em}
+.result-rank.top{background:var(--accent-dim);color:var(--accent)}
+.result-info{flex:1;min-width:0}
+.result-file{font-family:'Consolas','SF Mono',monospace;font-size:11px;
+  color:var(--accent2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.result-meta{font-size:10px;color:var(--muted);margin-top:3px;
+  display:flex;align-items:center;gap:8px;letter-spacing:.04em}
+.result-score-col{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.score-pct{font-size:14px;font-weight:700;letter-spacing:-.01em}
+.score-bar-bg{width:80px;height:3px;background:var(--border)}
+.score-bar{height:3px;transition:width .3s}
+.score-lbl{font-size:9px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+.result-body{display:none;background:#050508}
+.result-body.open{display:block}
+.result-body pre{margin:0}
+.result-body pre code{border-radius:0;font-size:11px}
+
+/* ── Schema ── */
+.schema-grid{display:flex;gap:1px;background:var(--border);margin-bottom:20px;flex-wrap:wrap}
+.schema-box{background:var(--bg2);flex:1;min-width:220px}
+.schema-box-head{background:var(--bg3);padding:10px 14px;
+  font-size:9px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;border-bottom:1px solid var(--border)}
+.schema-row{padding:8px 14px;border-bottom:1px solid var(--border);
+  display:flex;align-items:baseline;gap:8px;font-size:11px}
+.schema-row:last-child{border-bottom:none}
+.schema-fn{font-family:'Consolas','SF Mono',monospace;font-size:11px;color:var(--text);flex-shrink:0}
+.schema-type{font-family:'Consolas','SF Mono',monospace;font-size:9px;
+  color:var(--accent);background:var(--accent-dim);padding:1px 6px;flex-shrink:0}
+.schema-note{font-size:11px;color:var(--muted)}
+
+.flow-step{padding:8px 14px;border-bottom:1px solid var(--border);font-size:12px}
+.flow-step:last-child{border-bottom:none}
+.flow-step-lbl{font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--muted);margin-bottom:3px}
+.flow-arrow{padding:2px 14px;font-size:10px;color:var(--border);
+  font-family:'Consolas','SF Mono',monospace;letter-spacing:.06em}
+
+/* Flow mode sections */
+.flow-mode{border-bottom:1px solid var(--border)}
+.flow-mode:last-child{border-bottom:none}
+.flow-mode-head{padding:8px 14px;font-size:9px;font-weight:700;
+  letter-spacing:.16em;text-transform:uppercase}
+.flow-mode-head.blue{color:var(--accent2);background:rgba(106,159,196,.06)}
+.flow-mode-head.lavender{color:var(--accent);background:rgba(139,143,200,.06)}
+.flow-mode-head.green{color:var(--green);background:rgba(76,175,114,.06)}
+
+/* ── Misc ── */
+.spinner{display:inline-block;width:12px;height:12px;
+  border:1.5px solid var(--border);border-top-color:var(--accent);
+  border-radius:50%;animation:spin .6s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.empty-msg{text-align:center;padding:48px;color:var(--muted);
+  font-size:10px;letter-spacing:.2em;text-transform:uppercase}
+.mono{font-family:'Consolas','SF Mono',monospace;font-size:11px}
+</style>
+</head>
+<body>
+<div class="page">
+
+<!-- ── Nav ── -->
+<nav>
+  <div class="nav-brand">Code<span>Lens</span> AI</div>
+  <div class="nav-links">
+    <a href="index.html">Dashboard</a>
+    <a href="db_showcase.html" class="active">Database</a>
+  </div>
+  <div class="nav-status">
+    <div class="status-dot" id="statusDot"></div>
+    <span id="statusText">Checking…</span>
+  </div>
+</nav>
+
+<!-- ── Page header ── -->
+<div class="page-hdr">
+  <div class="page-tag">&gt;&gt;&gt; ChromaDB · NoSQL Vector Store</div>
+  <h1 class="page-title">Database Integration Showcase</h1>
+  <p class="page-sub">Live view of the ChromaDB collection powering CodeLens AI's RAG pipeline. Browse chunks, run native queries, inspect the schema.</p>
+</div>
+
+<!-- ── Stat bar ── -->
+<div class="stat-bar">
+  <div class="stat-box"><div class="stat-box-val" id="sbChunks">—</div><div class="stat-box-label">Chunks</div></div>
+  <div class="stat-box"><div class="stat-box-val" id="sbFiles">—</div><div class="stat-box-label">Source Files</div></div>
+  <div class="stat-box"><div class="stat-box-val" id="sbLangs">—</div><div class="stat-box-label">Languages</div></div>
+  <div class="stat-box"><div class="stat-box-val" id="sbVersion" style="font-size:16px">—</div><div class="stat-box-label">ChromaDB</div></div>
+  <div class="stat-box"><div class="stat-box-val" id="sbStatus" style="font-size:14px">—</div><div class="stat-box-label">Index Status</div></div>
+</div>
+
+<!-- ── Tabs ── -->
+<div class="tabs">
+  <button class="tab active" data-tab="overview">Overview</button>
+  <button class="tab" data-tab="browse">Browse Collection</button>
+  <button class="tab" data-tab="query">Query Engine</button>
+  <button class="tab" data-tab="schema">Schema &amp; Architecture</button>
+</div>
+
+<!-- ════ OVERVIEW ════ -->
+<div id="section-overview" class="section active">
+  <div class="sec-hdr">
+    <div class="sec-tag">Collection · codelens_chunks</div>
+    <div class="sec-title">Collection Details</div>
+  </div>
+  <div class="block">
+    <div class="block-title">Configuration</div>
+    <div class="kv" id="details-kv">
+      <div class="kv-row"><div class="k">Loading</div><div class="v">…</div></div>
+    </div>
+  </div>
+  <div class="block">
+    <div class="block-title">Indexed Languages</div>
+    <div id="lang-pills" style="display:flex;gap:8px;flex-wrap:wrap;padding-top:4px;">
+      <span style="color:var(--muted);font-size:11px">Loading…</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════ BROWSE ════ -->
+<div id="section-browse" class="section">
+  <div class="sec-hdr">
+    <div class="sec-tag">codelens_chunks · collection.get()</div>
+    <div class="sec-title">Browse Indexed Chunks</div>
+  </div>
+  <div class="controls">
+    <div class="search-wrap">
+      <svg class="search-icon" viewBox="0 0 12 12" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="1.2">
+        <circle cx="5" cy="5" r="3.5"/><path d="M8 8l2.5 2.5" stroke-linecap="round"/>
+      </svg>
+      <input type="text" id="browse-file" placeholder="Filter by file path…" autocomplete="off">
+    </div>
+    <select class="filter" id="browse-lang"><option value="">All Languages</option></select>
+    <button class="btn accent" onclick="browseApply()">↺ Apply</button>
+    <span id="browse-count" style="font-size:10px;color:var(--muted);letter-spacing:.06em;margin-left:auto"></span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:42px">#</th>
+          <th>File Path</th>
+          <th>Function / Chunk</th>
+          <th style="width:90px">Language</th>
+          <th style="width:76px">Lines</th>
+          <th>Code Preview</th>
+        </tr>
+      </thead>
+      <tbody id="browse-tbody">
+        <tr><td colspan="6" class="empty-msg"><span class="spinner"></span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="pagination" id="browse-pager" style="display:none">
+    <span class="page-info" id="pager-info"></span>
+    <div style="display:flex;gap:6px">
+      <button class="page-btn" id="btn-prev" onclick="browsePage(-1)">‹ Prev</button>
+      <button class="page-btn" id="btn-next" onclick="browsePage(1)">Next ›</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ QUERY ENGINE ════ -->
+<div id="section-query" class="section">
+  <div class="sec-hdr">
+    <div class="sec-tag">ChromaDB · Native Query Syntax</div>
+    <div class="sec-title">NoSQL Query Engine</div>
+  </div>
+
+  <!-- Mode selector -->
+  <div class="mode-row">
+    <button class="mode-btn active" data-mode="filter" onclick="setMode('filter')">
+      <div class="mode-btn-title">Filter</div>
+      <div class="mode-btn-sub">collection.get()</div>
+    </button>
+    <button class="mode-btn" data-mode="semantic" onclick="setMode('semantic')">
+      <div class="mode-btn-title">Semantic Search</div>
+      <div class="mode-btn-sub">collection.query()</div>
+    </button>
+    <button class="mode-btn" data-mode="both" onclick="setMode('both')">
+      <div class="mode-btn-title">Semantic + Filter</div>
+      <div class="mode-btn-sub">collection.query() + where</div>
+    </button>
+  </div>
+
+  <!-- Fields -->
+  <div class="block">
+    <!-- Semantic text -->
+    <div class="qfield" id="qf-semantic" style="display:none">
+      <div class="qlabel">Semantic Text Query</div>
+      <input id="q-text" class="q-input-text" placeholder='e.g. "save and load data from file"' oninput="updatePreview()">
+    </div>
+
+    <!-- WHERE -->
+    <div class="qfield" id="qf-where">
+      <div class="qlabel">
+        WHERE <span class="qlabel-op">metadata filter</span>
+        <span class="qerr" id="where-err">⚠ invalid json</span>
+      </div>
+      <textarea id="q-where" class="q-input" rows="3" placeholder='{"language": "python"}' oninput="updatePreview()"></textarea>
+      <div class="ex-chips">
+        <span class="ex-label">Examples:</span>
+        <button class="ex-chip" onclick="setWhere({'language':'python'})">language=python</button>
+        <button class="ex-chip" onclick="setWhere({'language':{'$in':['python','javascript']}})">python or js</button>
+        <button class="ex-chip" onclick="setWhere({'language':{'$nin':['java']}})">exclude java</button>
+        <button class="ex-chip" onclick="setWhere({'start_line':{'$lte':20}})">start_line≤20</button>
+        <button class="ex-chip" onclick="setWhere({'end_line':{'$gte':50}})">end_line≥50</button>
+        <button class="ex-chip" onclick="setWhere({'$and':[{'language':'python'},{'start_line':{'$lte':30}}]})">python + short</button>
+      </div>
+    </div>
+
+    <!-- WHERE DOCUMENT -->
+    <div class="qfield">
+      <div class="qlabel">
+        WHERE DOCUMENT <span class="qlabel-op">text search in code</span>
+        <span class="qerr" id="wheredoc-err">⚠ invalid json</span>
+      </div>
+      <textarea id="q-wheredoc" class="q-input" rows="2" placeholder='{"$contains": "save_data"}' oninput="updatePreview()"></textarea>
+      <div class="ex-chips">
+        <span class="ex-label">Examples:</span>
+        <button class="ex-chip" onclick="setWhereDoc({'$contains':'save_data'})">$contains:save_data</button>
+        <button class="ex-chip" onclick="setWhereDoc({'$contains':'load_data'})">$contains:load_data</button>
+        <button class="ex-chip" onclick="setWhereDoc({'$contains':'def '})">$contains:def</button>
+        <button class="ex-chip" onclick="setWhereDoc({'$contains':'class '})">$contains:class</button>
+        <button class="ex-chip" onclick="setWhereDoc({'$not_contains':'pass'})">$not_contains:pass</button>
+      </div>
+    </div>
+
+    <!-- Limit / top-k + run -->
+    <div class="q-row">
+      <div class="q-col" id="qf-limit">
+        <label>Limit</label>
+        <input type="number" class="q-num" id="q-limit" min="1" max="200" value="20" oninput="updatePreview()">
+      </div>
+      <div class="q-col" id="qf-topk" style="display:none">
+        <label>n_results &nbsp;<span class="topk-val" id="topk-val">10</span></label>
+        <input type="range" id="q-topk" min="1" max="20" value="10"
+               oninput="document.getElementById('topk-val').textContent=this.value;updatePreview()">
+      </div>
+      <div class="q-col" style="align-self:flex-end">
+        <button class="btn primary" onclick="runQuery()">Run Query</button>
+      </div>
+    </div>
+
+    <!-- Live preview -->
+    <div class="q-preview-wrap">
+      <div class="q-preview-label">Generated ChromaDB Call</div>
+      <div class="q-preview" id="q-preview"></div>
+    </div>
+
+    <div class="q-status" id="q-status"></div>
+  </div>
+
+  <div id="query-results"></div>
+</div>
+
+<!-- ════ SCHEMA ════ -->
+<div id="section-schema" class="section">
+  <div class="sec-hdr">
+    <div class="sec-tag">ChromaDB · Document Model</div>
+    <div class="sec-title">Schema &amp; Architecture</div>
+  </div>
+
+  <div class="block" style="margin-bottom:20px">
+    <div class="block-title">Database Type</div>
+    <p style="font-size:13px;color:var(--muted);line-height:1.8">
+      CodeLens AI uses <strong style="color:var(--text)">ChromaDB</strong> — an open-source, embedded
+      <strong style="color:var(--text)">NoSQL vector database</strong>. Unlike relational databases, it stores
+      <strong style="color:var(--text)">documents</strong> paired with high-dimensional
+      <strong style="color:var(--text)">embedding vectors</strong>. Queries find the
+      semantically closest documents by <strong style="color:var(--text)">cosine distance</strong>
+      across an HNSW index — no exact key match required.
+    </p>
+  </div>
+
+  <div class="schema-grid">
+    <div class="schema-box">
+      <div class="schema-box-head">Document Structure</div>
+      <div class="schema-row"><span class="schema-fn">id</span><span class="schema-type">string</span><span class="schema-note">file::function::start_line</span></div>
+      <div class="schema-row"><span class="schema-fn">embedding</span><span class="schema-type">float[]</span><span class="schema-note">768-dim · nomic-embed-text</span></div>
+      <div class="schema-row"><span class="schema-fn">document</span><span class="schema-type">string</span><span class="schema-note">raw code chunk text</span></div>
+      <div class="schema-row"><span class="schema-fn">metadata.file_path</span><span class="schema-type">string</span></div>
+      <div class="schema-row"><span class="schema-fn">metadata.function_name</span><span class="schema-type">string</span></div>
+      <div class="schema-row"><span class="schema-fn">metadata.language</span><span class="schema-type">string</span></div>
+      <div class="schema-row"><span class="schema-fn">metadata.start_line</span><span class="schema-type">int</span></div>
+      <div class="schema-row"><span class="schema-fn">metadata.end_line</span><span class="schema-type">int</span></div>
+    </div>
+
+    <div class="schema-box">
+      <div class="schema-box-head">Where Operators</div>
+      <div class="schema-row"><span class="schema-fn">$eq / $ne</span><span class="schema-note">equals / not equals</span></div>
+      <div class="schema-row"><span class="schema-fn">$gt / $gte</span><span class="schema-note">greater than (numbers)</span></div>
+      <div class="schema-row"><span class="schema-fn">$lt / $lte</span><span class="schema-note">less than (numbers)</span></div>
+      <div class="schema-row"><span class="schema-fn">$in / $nin</span><span class="schema-note">in / not in list</span></div>
+      <div class="schema-row"><span class="schema-fn">$and / $or</span><span class="schema-note">logical operators</span></div>
+      <div class="schema-row"><span class="schema-fn">$contains</span><span class="schema-note">where_document only</span></div>
+      <div class="schema-row"><span class="schema-fn">$not_contains</span><span class="schema-note">where_document only</span></div>
+      <div class="schema-row"><span class="schema-fn">$regex</span><span class="schema-note">where_document only</span></div>
+    </div>
+
+    <div class="schema-box">
+      <div class="schema-box-head">Query Flow — 3 Modes</div>
+
+      <div class="flow-mode">
+        <div class="flow-mode-head blue">Filter · collection.get()</div>
+        <div class="flow-step"><div class="flow-step-lbl">Input</div>where + where_document JSON</div>
+        <div class="flow-arrow">↓ metadata + text filter</div>
+        <div class="flow-step"><div class="flow-step-lbl">Output</div>matching documents · no score</div>
+      </div>
+
+      <div class="flow-mode">
+        <div class="flow-mode-head green">Semantic · collection.query()</div>
+        <div class="flow-step"><div class="flow-step-lbl">Input</div>natural-language text</div>
+        <div class="flow-arrow">↓ nomic-embed-text → 768-dim vector</div>
+        <div class="flow-arrow">↓ HNSW cosine search</div>
+        <div class="flow-step"><div class="flow-step-lbl">Output</div>top-K chunks + similarity %</div>
+      </div>
+
+      <div class="flow-mode">
+        <div class="flow-mode-head lavender">Semantic + Filter</div>
+        <div class="flow-step"><div class="flow-step-lbl">Input</div>text + where clause</div>
+        <div class="flow-arrow">↓ embed → search within filtered subset</div>
+        <div class="flow-step"><div class="flow-step-lbl">Output</div>ranked chunks matching both</div>
+        <div class="flow-arrow">↓ inject as LLM context</div>
+        <div class="flow-step"><div class="flow-step-lbl">RAG</div>LLM answer grounded in code</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-title">Data Pipeline</div>
+    <div class="kv">
+      <div class="kv-row"><div class="k">parse_codebase.py</div><div class="v">Tree-sitter AST → function/class chunks → <code>.tmp/chunks.jsonl</code></div></div>
+      <div class="kv-row"><div class="k">embed_chunks.py</div><div class="v">Ollama nomic-embed-text → 768-dim embeddings → <code>.tmp/chunks_with_embeddings.jsonl</code></div></div>
+      <div class="kv-row"><div class="k">chroma_store.py</div><div class="v">Writes embeddings + metadata → <code>.tmp/chromadb/</code></div></div>
+      <div class="kv-row"><div class="k">rag_query.py</div><div class="v">Embeds question → cosine search → top-K chunks injected into LLM prompt</div></div>
+    </div>
+  </div>
+
+  <div class="block">
+    <div class="block-title">Why NoSQL over SQL?</div>
+    <p style="font-size:13px;color:var(--muted);line-height:1.8">
+      Code search is a <strong style="color:var(--text)">semantic problem</strong>, not a keyword problem.
+      <code>WHERE code LIKE '%save%'</code> can't find <code>serialize()</code> or <code>write_to_file()</code>.
+      By storing code as 768-dim embeddings, ChromaDB matches <em>intent</em> — a query about
+      "persistence" retrieves the right functions even if the word never appears in them.
+    </p>
+  </div>
+</div>
+
+</div><!-- /.page -->
+
+<script>
+"use strict";
+
+function esc(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+function langBadge(lang){
+  var cls = {python:'lb-python',javascript:'lb-javascript',typescript:'lb-typescript',
+             java:'lb-java',cpp:'lb-cpp',c:'lb-c'}[(lang||'').toLowerCase()] || 'lb-default';
+  return '<span class="lb '+cls+'">'+esc(lang||'?')+'</span>';
+}
+function hlLang(lang){
+  return {python:'python',javascript:'javascript',typescript:'typescript',
+          java:'java',cpp:'cpp',c:'c'}[(lang||'').toLowerCase()] || 'plaintext';
+}
+function hljsBlock(code, lang){
+  return '<pre><code class="language-'+hlLang(lang)+'">'+esc(code)+'</code></pre>';
+}
+function highlightNew(root){
+  (root||document).querySelectorAll('pre code').forEach(function(el){
+    if(!el.dataset.highlighted) hljs.highlightElement(el);
+  });
+}
+
+// ── Backend status ────────────────────────────────────────────────────────────
+async function checkBackend(){
+  try{
+    var r = await fetch('/health', {signal:AbortSignal.timeout(3000)});
+    document.getElementById('statusDot').className  = r.ok ? 'status-dot ok' : 'status-dot err';
+    document.getElementById('statusText').textContent = r.ok ? 'Backend online' : 'Backend error';
+  } catch(e){
+    document.getElementById('statusDot').className  = 'status-dot err';
+    document.getElementById('statusText').textContent = 'Backend offline';
+  }
+}
+checkBackend();
+setInterval(checkBackend, 15000);
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+document.querySelectorAll('.tab').forEach(function(tab){
+  tab.addEventListener('click', function(){
+    document.querySelectorAll('.tab').forEach(function(t){ t.classList.remove('active'); });
+    document.querySelectorAll('.section').forEach(function(s){ s.classList.remove('active'); });
+    tab.classList.add('active');
+    document.getElementById('section-'+tab.dataset.tab).classList.add('active');
+    if(tab.dataset.tab==='browse' && !browseLoaded) loadBrowse(0);
+  });
+});
+
+// ── Overview ──────────────────────────────────────────────────────────────────
+async function loadOverview(){
+  try{
+    var d = await fetch('/db/overview').then(function(r){ return r.json(); });
+
+    document.getElementById('sbChunks').textContent  = d.chunk_count.toLocaleString();
+    document.getElementById('sbFiles').textContent   = d.file_count.toLocaleString();
+    document.getElementById('sbLangs').textContent   = d.languages.length;
+    document.getElementById('sbVersion').textContent = d.chromadb_version || '—';
+    var sbSt = document.getElementById('sbStatus');
+    sbSt.textContent = d.indexed && d.chunk_count > 0 ? '✓ Indexed' : '✗ Empty';
+    sbSt.style.color = d.indexed && d.chunk_count > 0 ? 'var(--green)' : 'var(--red)';
+
+    document.getElementById('details-kv').innerHTML =
+      '<div class="kv-row"><div class="k">Collection</div><div class="v"><code>'+esc(d.collection_name)+'</code></div></div>'+
+      '<div class="kv-row"><div class="k">Similarity</div><div class="v"><code>cosine</code> (HNSW index)</div></div>'+
+      '<div class="kv-row"><div class="k">Embed Model</div><div class="v"><code>nomic-embed-text</code> via Ollama</div></div>'+
+      '<div class="kv-row"><div class="k">Persist Dir</div><div class="v"><code>'+esc(d.persist_dir)+'</code></div></div>';
+
+    var pills = document.getElementById('lang-pills');
+    pills.innerHTML = d.languages.length
+      ? d.languages.map(function(l){ return langBadge(l); }).join('')
+      : '<span style="color:var(--muted);font-size:11px">No languages indexed yet.</span>';
+
+    var browseEl = document.getElementById('browse-lang');
+    browseEl.innerHTML = '<option value="">All Languages</option>' +
+      d.languages.map(function(l){ return '<option value="'+esc(l)+'">'+esc(l)+'</option>'; }).join('');
+  } catch(e){
+    document.getElementById('statusDot').className = 'status-dot err';
+  }
+}
+
+// ── Browse ────────────────────────────────────────────────────────────────────
+var browseLoaded = false, browseOffset = 0, browseTotal = 0;
+var PAGE = 20;
+
+function browseApply(){ loadBrowse(0); }
+function browsePage(dir){
+  var next = browseOffset + dir * PAGE;
+  if(next < 0 || next >= browseTotal) return;
+  loadBrowse(next);
+}
+
+async function loadBrowse(offset){
+  browseLoaded = true; browseOffset = offset;
+  var lang = document.getElementById('browse-lang').value;
+  var file = document.getElementById('browse-file').value;
+  var tbody = document.getElementById('browse-tbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="empty-msg"><span class="spinner"></span></td></tr>';
+  document.getElementById('browse-pager').style.display = 'none';
+  document.getElementById('browse-count').textContent = '';
+  try{
+    var params = new URLSearchParams({offset:offset, limit:PAGE, language:lang, file_contains:file});
+    var d = await fetch('/db/browse?'+params).then(function(r){ return r.json(); });
+    browseTotal = d.total;
+    document.getElementById('browse-count').textContent =
+      d.total.toLocaleString() + ' chunk' + (d.total!==1?'s':'') +
+      (d.total!==d.total_unfiltered ? ' of '+d.total_unfiltered.toLocaleString() : '');
+    if(!d.items.length){
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">No chunks match the current filters.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = d.items.map(function(item, i){
+      var num = offset + i + 1;
+      return '<tr onclick="toggleRow(\'exp-'+num+'\')">' +
+        '<td class="td-muted">'+num+'</td>'+
+        '<td class="td-mono td-accent">'+esc(item.file_path)+'</td>'+
+        '<td class="td-mono">'+esc(item.function_name)+'</td>'+
+        '<td>'+langBadge(item.language)+'</td>'+
+        '<td class="td-muted">'+item.start_line+'–'+item.end_line+'</td>'+
+        '<td class="td-preview">'+esc(item.code_preview)+'</td>'+
+        '</tr>'+
+        '<tr class="expand-row" id="exp-'+num+'">'+
+          '<td colspan="6">'+hljsBlock(item.code_full, item.language)+'</td>'+
+        '</tr>';
+    }).join('');
+    highlightNew(tbody);
+    var totalPages = Math.ceil(browseTotal/PAGE) || 1;
+    document.getElementById('pager-info').textContent =
+      'Page '+(Math.floor(offset/PAGE)+1)+' of '+totalPages+' · '+browseTotal.toLocaleString()+' results';
+    document.getElementById('btn-prev').disabled = offset === 0;
+    document.getElementById('btn-next').disabled = offset + PAGE >= browseTotal;
+    document.getElementById('browse-pager').style.display = 'flex';
+  } catch(e){
+    tbody.innerHTML = '<tr><td colspan="6" class="empty-msg">Error: '+esc(e.message)+'</td></tr>';
+  }
+}
+
+function toggleRow(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  el.classList.toggle('open');
+  highlightNew(el);
+}
+
+// ── Query Engine ──────────────────────────────────────────────────────────────
+var queryMode = 'filter';
+
+function setMode(mode){
+  queryMode = mode;
+  document.querySelectorAll('.mode-btn').forEach(function(btn){
+    btn.classList.toggle('active', btn.dataset.mode === mode);
+  });
+  var isSemantic = mode==='semantic' || mode==='both';
+  var isFilter   = mode==='filter'   || mode==='both';
+  document.getElementById('qf-semantic').style.display = isSemantic ? 'block' : 'none';
+  document.getElementById('qf-where').style.display    = isFilter   ? 'block' : 'none';
+  document.getElementById('qf-limit').style.display    = mode==='filter' ? 'block' : 'none';
+  document.getElementById('qf-topk').style.display     = isSemantic ? 'block' : 'none';
+  updatePreview();
+}
+
+function tryJson(taId, errId){
+  var val = document.getElementById(taId).value.trim();
+  var ta  = document.getElementById(taId);
+  var err = document.getElementById(errId);
+  if(!val){ ta.classList.remove('err'); err.style.display='none'; return null; }
+  try{
+    var obj = JSON.parse(val);
+    ta.classList.remove('err'); err.style.display='none';
+    return obj;
+  } catch(e){
+    ta.classList.add('err'); err.style.display='inline';
+    return undefined;
+  }
+}
+
+function setWhere(obj){
+  document.getElementById('q-where').value = JSON.stringify(obj, null, 2);
+  updatePreview();
+}
+function setWhereDoc(obj){
+  document.getElementById('q-wheredoc').value = JSON.stringify(obj, null, 2);
+  updatePreview();
+}
+
+function updatePreview(){
+  var where    = tryJson('q-where', 'where-err');
+  var whereDoc = tryJson('q-wheredoc', 'wheredoc-err');
+  var text     = (document.getElementById('q-text') ? document.getElementById('q-text').value : '').trim();
+  var topK     = document.getElementById('q-topk').value;
+  var limit    = document.getElementById('q-limit').value;
+  var lines = [];
+  if(queryMode==='filter'){
+    lines.push('collection.get(');
+    if(where)    lines.push('    where='+JSON.stringify(where)+',');
+    if(whereDoc) lines.push('    where_document='+JSON.stringify(whereDoc)+',');
+    lines.push('    limit='+limit+',');
+    lines.push('    include=["documents", "metadatas"]');
+    lines.push(')');
+  } else {
+    lines.push('collection.query(');
+    lines.push('    query_embeddings=[embed("'+(text||'<text required>').replace(/"/g,'\\"')+'")],');
+    if(where)    lines.push('    where='+JSON.stringify(where)+',');
+    if(whereDoc) lines.push('    where_document='+JSON.stringify(whereDoc)+',');
+    lines.push('    n_results='+topK+',');
+    lines.push('    include=["documents", "metadatas", "distances"]');
+    lines.push(')');
+  }
+  document.getElementById('q-preview').textContent = lines.join('\n');
+}
+
+async function runQuery(){
+  var where    = tryJson('q-where', 'where-err');
+  var whereDoc = tryJson('q-wheredoc', 'wheredoc-err');
+  if(where===undefined || whereDoc===undefined){
+    document.getElementById('q-status').textContent = '⚠ fix json errors before running';
+    return;
+  }
+  var body = {mode:queryMode, where:where||null, where_document:whereDoc||null};
+  if(queryMode==='semantic' || queryMode==='both'){
+    var text = document.getElementById('q-text').value.trim();
+    if(!text){ document.getElementById('q-status').textContent = '⚠ enter semantic search text'; return; }
+    body.query_text = text;
+    body.top_k = parseInt(document.getElementById('q-topk').value, 10);
+  }
+  if(queryMode==='filter') body.limit = parseInt(document.getElementById('q-limit').value, 10);
+
+  var status  = document.getElementById('q-status');
+  var results = document.getElementById('query-results');
+  status.innerHTML = '<span class="spinner"></span> &nbsp;Executing query…';
+  results.innerHTML = '';
+  try{
+    var res = await fetch('/db/query', {
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
+    });
+    if(!res.ok){
+      var err = await res.json().catch(function(){ return {detail:res.statusText}; });
+      status.textContent = '⚠ '+( err.detail || res.statusText);
+      return;
+    }
+    var d = await res.json();
+    if(d.executed_query) document.getElementById('q-preview').textContent = d.executed_query;
+    var total = d.total !== undefined ? d.total : (d.results||[]).length;
+    status.textContent = total.toLocaleString()+' document'+(total!==1?'s':'')+' returned';
+    if(!d.results||!d.results.length){
+      results.innerHTML = '<div class="empty-msg">No documents matched the query.</div>';
+      return;
+    }
+    var hasDist = queryMode==='semantic' || queryMode==='both';
+    results.innerHTML = d.results.map(function(r, i){
+      var scoreHtml = '';
+      if(hasDist){
+        var pct = Math.max(0, Math.min(100, r.similarity_pct));
+        var col = pct>65 ? 'var(--green)' : pct>35 ? 'var(--orange)' : 'var(--red)';
+        scoreHtml = '<div class="result-score-col">'+
+          '<span class="score-pct" style="color:'+col+'">'+pct+'%</span>'+
+          '<div class="score-bar-bg"><div class="score-bar" style="width:'+pct+'%;background:'+col+'"></div></div>'+
+          '<span class="score-lbl">similarity</span>'+
+          '</div>';
+      }
+      return '<div class="result-card">'+
+        '<div class="result-hdr" onclick="toggleResult(this,\'rb-'+i+'\')">' +
+          '<div class="result-rank'+(i===0&&hasDist?' top':'')+'">'+('0'+(i+1)).slice(-2)+'</div>'+
+          '<div class="result-info">'+
+            '<div class="result-file">'+esc(r.file_path)+'</div>'+
+            '<div class="result-meta">'+
+              langBadge(r.language)+' &nbsp;'+
+              '<span class="mono">'+esc(r.function_name)+'</span>'+
+              ' &nbsp;·&nbsp; lines '+r.start_line+'–'+r.end_line+
+            '</div>'+
+          '</div>'+
+          scoreHtml+
+        '</div>'+
+        '<div class="result-body" id="rb-'+i+'">'+hljsBlock(r.code, r.language)+'</div>'+
+        '</div>';
+    }).join('');
+    highlightNew(results);
+  } catch(e){
+    status.textContent = '⚠ '+esc(e.message);
+  }
+}
+
+function toggleResult(hdr, bodyId){
+  hdr.classList.toggle('open');
+  var body = document.getElementById(bodyId);
+  if(!body) return;
+  body.classList.toggle('open');
+  if(body.classList.contains('open')) highlightNew(body);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+loadOverview();
+setMode('filter');
+</script>
+</body>
+</html>

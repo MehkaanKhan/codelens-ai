@@ -76,6 +76,14 @@ class ConvertCodebaseRequest(BaseModel):
 class SummarizeRequest(BaseModel):
     repo_path: str
 
+class DbQueryRequest(BaseModel):
+    mode: str = "semantic"                 # "filter" | "semantic" | "both"
+    query_text: Optional[str] = None       # required for "semantic" and "both"
+    where: Optional[dict] = None           # ChromaDB metadata filter
+    where_document: Optional[dict] = None  # ChromaDB document text filter
+    top_k: int = 10                        # n_results for semantic/both
+    limit: int = 20                        # limit for filter mode
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Helpers
@@ -227,11 +235,13 @@ def summarize_repo(req: SummarizeRequest):
 
 @app.post("/convert")
 def convert_code(req: ConvertRequest):
+    from codebase_converter import _lang_rules, _strip_fences
+    lang_rules = _lang_rules(req.target_lang)
     prompt = (
-        f"You are an expert programmer. Convert the following {req.source_lang} code "
-        f"to idiomatic {req.target_lang}. Preserve all functionality and logic exactly. "
+        f"You are an expert programmer converting {req.source_lang} code "
+        f"to idiomatic {req.target_lang}. Preserve all functionality and logic exactly.\n"
+        f"{lang_rules}\n\n"
         f"Output ONLY the translated code with no explanation or markdown fences.\n\n"
-        f"Convert this {req.source_lang} to {req.target_lang}:\n\n"
         f"```{req.source_lang}\n{req.code}\n```\n\n"
         f"{req.target_lang} code:"
     )
@@ -252,15 +262,7 @@ def convert_code(req: ConvertRequest):
         except Exception as e:
             raise HTTPException(status_code=500, detail=str(e))
 
-    # Strip markdown fences the model may have added
-    converted = converted.strip()
-    if converted.startswith("```"):
-        lines = converted.split("\n")
-        lines = lines[1:]
-        if lines and lines[-1].strip() == "```":
-            lines = lines[:-1]
-        converted = "\n".join(lines).strip()
-
+    converted = _strip_fences(converted)
     return {"converted_code": converted, "source_lang": req.source_lang, "target_lang": req.target_lang}
 
 
@@ -365,6 +367,201 @@ def download_conversion_result(job_id: str):
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="codelens_converted_{job_id}.zip"'},
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Database Showcase
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/db/overview")
+def db_overview():
+    import chromadb
+    from chroma_store import get_status, CHROMA_PERSIST_DIR, COLLECTION_NAME
+    status = get_status()
+    try:
+        version = chromadb.__version__
+    except Exception:
+        version = "unknown"
+    return {
+        "collection_name": COLLECTION_NAME,
+        "hnsw_space": "cosine",
+        "chromadb_version": version,
+        **status,
+    }
+
+
+@app.get("/db/facets")
+def db_facets():
+    from chroma_store import get_client, COLLECTION_NAME
+    client = get_client()
+    try:
+        col = client.get_collection(COLLECTION_NAME)
+        count = col.count()
+        if count == 0:
+            return {"languages": [], "files": []}
+        sample = col.get(limit=min(count, 5000), include=["metadatas"])
+        langs  = sorted({m["language"]  for m in sample["metadatas"]})
+        files  = sorted({m["file_path"] for m in sample["metadatas"]})
+        return {"languages": langs, "files": files}
+    except Exception:
+        return {"languages": [], "files": []}
+
+
+@app.get("/db/browse")
+def db_browse(
+    offset: int = 0,
+    limit: int = 20,
+    language: str = "",
+    file_contains: str = "",
+):
+    from chroma_store import get_client, COLLECTION_NAME
+    client = get_client()
+    try:
+        col   = client.get_collection(COLLECTION_NAME)
+        total = col.count()
+        if total == 0:
+            return {"total": 0, "total_unfiltered": 0, "offset": 0, "limit": limit, "items": []}
+
+        where      = {"language": language} if language else None
+        fetch_cap  = min(total, 5000)
+        kwargs     = {"limit": fetch_cap, "include": ["documents", "metadatas"]}
+        if where:
+            kwargs["where"] = where
+        result = col.get(**kwargs)
+
+        rows = list(zip(result["ids"], result["documents"], result["metadatas"]))
+
+        if file_contains:
+            needle = file_contains.lower()
+            rows   = [(i, d, m) for i, d, m in rows if needle in m["file_path"].lower()]
+
+        total_filtered = len(rows)
+        page           = rows[offset : offset + limit]
+
+        items = [
+            {
+                "id":            chunk_id,
+                "file_path":     meta["file_path"],
+                "function_name": meta["function_name"],
+                "language":      meta["language"],
+                "start_line":    meta["start_line"],
+                "end_line":      meta["end_line"],
+                "code_preview":  doc[:200],
+                "code_full":     doc,
+            }
+            for chunk_id, doc, meta in page
+        ]
+        return {
+            "total":            total_filtered,
+            "total_unfiltered": total,
+            "offset":           offset,
+            "limit":            limit,
+            "items":            items,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/db/query")
+def db_query(req: DbQueryRequest):
+    import json as _json
+    from chroma_store import get_client, COLLECTION_NAME
+
+    client = get_client()
+    try:
+        col   = client.get_collection(COLLECTION_NAME)
+        count = col.count()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+    if count == 0:
+        return {"mode": req.mode, "results": [], "total": 0, "executed_query": "# collection is empty"}
+
+    def _build_item(doc, meta, dist=None):
+        item = {
+            "file_path":     meta["file_path"],
+            "function_name": meta["function_name"],
+            "language":      meta["language"],
+            "start_line":    meta["start_line"],
+            "end_line":      meta["end_line"],
+            "code":          doc,
+            "distance":      round(dist, 4) if dist is not None else None,
+            "similarity_pct": round((1 - dist) * 100, 1) if dist is not None else None,
+        }
+        return item
+
+    # ── filter mode: collection.get() ──────────────────────────────────────────
+    if req.mode == "filter":
+        kwargs: dict = {"include": ["documents", "metadatas"], "limit": max(1, req.limit)}
+        if req.where:         kwargs["where"]          = req.where
+        if req.where_document: kwargs["where_document"] = req.where_document
+        try:
+            result = col.get(**kwargs)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"ChromaDB error: {e}")
+
+        items = [_build_item(d, m) for d, m in zip(result["documents"], result["metadatas"])]
+
+        lines = ["collection.get("]
+        if req.where:          lines.append(f"    where={_json.dumps(req.where)},")
+        if req.where_document: lines.append(f"    where_document={_json.dumps(req.where_document)},")
+        lines += [f"    limit={req.limit},", '    include=["documents", "metadatas"]', ")"]
+        return {"mode": req.mode, "results": items, "total": len(items), "executed_query": "\n".join(lines)}
+
+    # ── semantic / both modes: collection.query() ───────────────────────────────
+    if not req.query_text:
+        raise HTTPException(status_code=400, detail="query_text is required for semantic and both modes")
+
+    from embed_chunks import embed_batch
+    try:
+        embedding = embed_batch([req.query_text])[0]
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Embedding failed — is Ollama running? {e}")
+
+    n = min(req.top_k, count)
+    kwargs = {
+        "query_embeddings": [embedding],
+        "n_results":        n,
+        "include":          ["documents", "metadatas", "distances"],
+    }
+    if req.where:          kwargs["where"]          = req.where
+    if req.where_document: kwargs["where_document"] = req.where_document
+
+    try:
+        results = col.query(**kwargs)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"ChromaDB error: {e}")
+
+    items = [
+        _build_item(d, m, dist)
+        for d, m, dist in zip(
+            results["documents"][0],
+            results["metadatas"][0],
+            results["distances"][0],
+        )
+    ]
+
+    q_escaped = req.query_text.replace('"', '\\"')
+    lines = [f'collection.query(', f'    query_embeddings=[embed("{q_escaped}")],']
+    if req.where:          lines.append(f"    where={_json.dumps(req.where)},")
+    if req.where_document: lines.append(f"    where_document={_json.dumps(req.where_document)},")
+    lines += [f"    n_results={n},", '    include=["documents", "metadatas", "distances"]', ")"]
+    return {"mode": req.mode, "query": req.query_text, "top_k": n, "results": items,
+            "total": len(items), "executed_query": "\n".join(lines)}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# BLEU evaluation results
+# ─────────────────────────────────────────────────────────────────────────────
+
+@app.get("/bleu-results")
+def bleu_results():
+    """Return Phase 7 BLEU evaluation results (from finetune/bleu_results.json)."""
+    import json as _json
+    results_path = REPO_ROOT / "finetune" / "bleu_results.json"
+    if not results_path.exists():
+        raise HTTPException(status_code=404, detail="BLEU results not yet available. Run finetune/bleu_eval.py first.")
+    return _json.loads(results_path.read_text(encoding="utf-8"))
 
 
 # ─────────────────────────────────────────────────────────────────────────────
