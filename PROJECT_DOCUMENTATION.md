@@ -311,7 +311,163 @@ Data flows `dataset/data/raw → dataset/data/processed` (raw/processed payloads
 
 ---
 
-## 11. Technology Stack
+## 11. Mathematical Foundations
+
+### 11.1 Retrieval-Augmented Generation (RAG)
+
+**Embedding**
+
+Each code chunk `cᵢ` is mapped to a dense vector by the encoder:
+
+```
+eᵢ = Encoder(cᵢ) ∈ ℝ⁷⁶⁸
+```
+
+`nomic-embed-text` produces 768-dimensional embeddings. The same encoder is applied to the user query `q` to obtain `e_q`.
+
+**Similarity retrieval**
+
+Semantic similarity between the query and each stored chunk is measured by cosine similarity:
+
+```
+sim(e_q, eᵢ) = (e_q · eᵢ) / (‖e_q‖ · ‖eᵢ‖)
+```
+
+The top-5 chunks are selected by ranking all stored embeddings on this score:
+
+```
+C* = top-5 { sim(e_q, eᵢ) : eᵢ ∈ ChromaDB }
+```
+
+**Answer generation**
+
+The LLM is conditioned on the retrieved context, not free to hallucinate:
+
+```
+answer = LLM( SYSTEM_PROMPT ⊕ query ⊕ C* )
+```
+
+where `⊕` denotes prompt concatenation. The model's output is thus grounded in `C*` — every claim traceable to a real source chunk.
+
+---
+
+### 11.2 Codebase Converter
+
+**Topological ordering**
+
+The project is modelled as a dependency graph `G = (V, E)` where `V` is the set of files and `(fᵢ, fⱼ) ∈ E` means `fⱼ` imports `fᵢ`. Kahn's algorithm computes a topological sort `τ` such that every file appears after all its dependencies:
+
+```
+τ = TopSort(G)    s.t.  fᵢ appears before fⱼ  whenever  (fᵢ, fⱼ) ∈ E
+```
+
+This guarantees the converter processes each file only after its dependencies are already translated.
+
+**Peer Callable Whitelist**
+
+Let `Mᵢ` be the set of public method signatures deterministically extracted from the already-converted output of file `fᵢ`. When converting file `fⱼ` that depends on `fᵢ`:
+
+```
+Prompt(fⱼ) = CONTRACT ⊕ WHITELIST(Mᵢ) ⊕ source(fⱼ)
+```
+
+The constraint injected into the prompt is hard: the LLM may **only** call methods in `Mᵢ`. This turns an informational hint into a verifiable constraint, eliminating cross-file method hallucination at zero additional LLM cost.
+
+**Signature-based memory compression**
+
+Raw peer files are too large to include verbatim in every prompt. `_extract_file_signatures` compresses each peer to its interface:
+
+```
+Compression ratio ≈ N_raw / N_sig  ≈  280 / 60  ≈  4.7×
+```
+
+This ensures that a method defined at line 220 of a 280-line file (e.g. `save_data`) is visible in the context of every file that depends on it, instead of being cut off by a naive first-N-lines window.
+
+**Bounded repair loop**
+
+After each conversion attempt, the output is passed to a language-specific compiler check. On failure:
+
+```
+repeat:
+    fᵢ ← LLM_repair(fᵢ, errors)
+    if compile_check(fᵢ) = PASS: break
+until attempts ≥ MAX_REPAIR_ATTEMPTS  (= 2)
+```
+
+The bound prevents an infinite loop while still giving the model two targeted repair passes.
+
+---
+
+### 11.3 QLoRA Fine-Tuning
+
+Standard full fine-tuning requires storing gradients and optimizer states proportional to the full weight matrix `W ∈ ℝᵐˣⁿ`, which is infeasible on a consumer GPU for a 3B-parameter model.
+
+**Low-rank adaptation (LoRA)**
+
+The weight update is decomposed into a product of two small matrices:
+
+```
+ΔW = A · B    where  A ∈ ℝᵐˣʳ,  B ∈ ℝʳˣⁿ,  rank r ≪ min(m, n)
+```
+
+The effective weight during training is:
+
+```
+W' = W + (α / r) · ΔW
+```
+
+where `α` is the LoRA scaling hyperparameter. `W` is frozen; only `A` and `B` are trained. The number of trainable parameters drops from `m × n` to `r × (m + n)`.
+
+**4-bit NF4 quantization (QLoRA)**
+
+The frozen base weights `W` are stored in 4-bit NormalFloat (NF4) format rather than 32-bit float:
+
+```
+Memory(W) ≈ (4 / 32) × Memory_fp32(W)  =  0.125 × baseline
+```
+
+Combined with LoRA, this allows training a 3B-parameter model within the 8 GB VRAM of a single RTX 4060.
+
+---
+
+### 11.4 Evaluation Metrics
+
+**BLEU score**
+
+BLEU measures n-gram overlap between the model's output and a reference translation:
+
+```
+BLEU = BP × exp( Σₙ wₙ × log pₙ )
+```
+
+where:
+- `pₙ` = modified n-gram precision at order `n` = (matching n-grams in candidate) / (total n-grams in candidate)
+- `wₙ` = 1/N with N = 4 (uniform weights across unigram to 4-gram)
+- `BP` = brevity penalty = `min(1, exp(1 − r/c))`, penalising outputs shorter than the reference (`r` = reference length, `c` = candidate length)
+
+**Token-F1**
+
+Token-F1 treats each output as a bag of tokens and measures overlap symmetrically:
+
+```
+P  = |predicted_tokens ∩ reference_tokens| / |predicted_tokens|
+R  = |predicted_tokens ∩ reference_tokens| / |reference_tokens|
+F1 = 2PR / (P + R)
+```
+
+Unlike BLEU, Token-F1 does not penalise word order or length, making it a complementary signal.
+
+**Observed results** (50-sample held-out set):
+
+| Model | BLEU | Token-F1 |
+|---|---|---|
+| Base `qwen2.5-coder:3b` | 11.49 | 0.155 |
+| **Fine-tuned `codelens-qwen`** | **65.06** | **0.617** |
+| **Improvement** | **+53.56 (~5.7×)** | **+0.462** |
+
+---
+
+## 12. Technology Stack
 
 | Layer | Technology |
 |---|---|
@@ -326,7 +482,7 @@ Data flows `dataset/data/raw → dataset/data/processed` (raw/processed payloads
 
 ---
 
-## 12. Repository Structure
+## 13. Repository Structure
 
 ```
 codelens-ai/
@@ -363,7 +519,7 @@ codelens-ai/
 
 ---
 
-## 13. How to Run
+## 14. How to Run
 
 1. **Install prerequisites:** Python 3.10+, Node.js, and [Ollama](https://ollama.com). Pull/register the models (`codelens-qwen`, `qwen2.5-coder:7b`, `nomic-embed-text`).
 2. **Install dependencies:**
@@ -384,7 +540,7 @@ codelens-ai/
 
 ---
 
-## 14. Design Principles (Summary)
+## 15. Design Principles (Summary)
 
 1. **Offline by mandate** — no code ever leaves the machine; no external API is ever called.
 2. **Deterministic-first** — compute everything computable; fence the LLM inside a hard contract.
@@ -395,7 +551,7 @@ codelens-ai/
 
 ---
 
-## 15. Future Work
+## 16. Future Work
 
 - **Rust / Go as conversion targets** (grammars already parsed for RAG; target rules + extensions pending).
 - **Tightening C++ semantic translation** (serialization wire-format and generic-type erasure in the schema).
