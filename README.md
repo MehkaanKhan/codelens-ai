@@ -1,6 +1,6 @@
 <div align="center">
 
-# 🔍 CodeLens AI
+# CodeLens AI
 
 **AI-powered codebase intelligence for VS Code — fully offline, no cloud APIs.**
 
@@ -11,7 +11,7 @@ powered by a locally hosted, fine-tuned LLM. Not a single line of code ever leav
 
 ---
 
-## ✨ What it does
+## What it does
 
 | | Feature | Description |
 |---|---|---|
@@ -23,7 +23,7 @@ The defining constraint: **everything runs 100% locally** through Ollama — usa
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌──────────────────────────────────────────────────────────┐
@@ -120,7 +120,7 @@ Then open the project in VS Code and press **F5** to launch the Extension Develo
 
 ---
 
-## 🛠️ Tech stack
+## Tech stack
 
 **Frontend:** TypeScript · VS Code Extension API · webpack
 **Backend:** Python · FastAPI · Uvicorn · Pydantic
@@ -129,7 +129,7 @@ Then open the project in VS Code and press **F5** to launch the Extension Develo
 
 ---
 
-## 📐 Design principles
+## Design principles
 
 1. **Offline by mandate** — no code ever leaves the machine; no external API is ever called.
 2. **Deterministic-first** — compute everything computable; fence the LLM inside a hard contract.
