@@ -45,7 +45,7 @@ The defining constraint: **everything runs 100% locally** through Ollama — usa
 
 ---
 
-## 📂 Repository structure
+## Repository structure
 
 The repo is organized to map directly onto the four project pillars:
 
@@ -60,7 +60,7 @@ The repo is organized to map directly onto the four project pillars:
 
 ---
 
-## 🧠 Models
+## Models
 
 | Role | Model | Notes |
 |---|---|---|
@@ -78,7 +78,7 @@ The repo is organized to map directly onto the four project pillars:
 
 ---
 
-## 🚀 Getting started
+## Getting started
 
 ### Prerequisites
 
